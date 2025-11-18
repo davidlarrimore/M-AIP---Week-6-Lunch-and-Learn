@@ -8,8 +8,9 @@ This repository hosts a guided Streamlit app that walks a non-technical audience
    - `OPENAI_API_KEY`
    - `OPENAI_API_BASE` (e.g., Bedrock’s OpenAI-compatible gateway)
    - Optional overrides: `OPENAI_EMBEDDING_MODEL` / `OPENAI_TRANSLATION_MODEL`
+   - Optional `OPENAI_GENERATION_MODEL` (defaults to `gpt-4o-mini`)
 2. Run `./start.sh` to create/activate the virtual environment, install dependencies, source the `.env`, and start Streamlit.
-3. Navigate via the sidebar to explore each page (`Tokenization`, `Embeddings`, `Translation`, `Word Order`) with live calls to your configured models.
+3. Navigate via the sidebar to explore each page (`Tokenization`, `Embeddings`, `Translation`, `Word Order`, `Transformer Lab`) with live calls to your configured models.
 
 ## Structure
 

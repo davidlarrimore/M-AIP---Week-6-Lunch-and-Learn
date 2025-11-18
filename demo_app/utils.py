@@ -13,8 +13,10 @@ load_dotenv()
 
 EMBEDDING_MODEL_ENV = "OPENAI_EMBEDDING_MODEL"
 TRANSLATION_MODEL_ENV = "OPENAI_TRANSLATION_MODEL"
+GENERATION_MODEL_ENV = "OPENAI_GENERATION_MODEL"
 DEFAULT_EMBEDDING_MODEL = "amazon.titan-embed-text"
 DEFAULT_TRANSLATION_MODEL = "amazon.titan-translate"
+DEFAULT_GENERATION_MODEL = "gpt-4o-mini"
 
 
 def _env_value(key: str, default: str = "", required: bool = False) -> str:
@@ -103,3 +105,8 @@ def translate_text(text: str, target_lang: str, context: str = "") -> str:
         temperature=0.2,
     )
     return response.choices[0].message.content.strip()
+
+
+def get_generation_model() -> str:
+    """Return the configured generation model name."""
+    return _env_value(GENERATION_MODEL_ENV, DEFAULT_GENERATION_MODEL)

@@ -4,6 +4,7 @@ from Tokenization import tokenization_page
 from Embeddings import embeddings_page
 from Translation import translation_page
 from WordOrder import word_order_page
+from TransformerDemo import transformer_page
 
 PAGE_NAVIGATION = {
     "🏠 Home": ("Home / Overview", "🏠"),
@@ -11,6 +12,7 @@ PAGE_NAVIGATION = {
     "🎯 Embeddings": ("Embedding Similarity Explorer", "🎯"),
     "🌐 Translation": ("Translation Sandbox", "🌐"),
     "🔄 Word Order": ("Word Order & Transformer Demo", "🔄"),
+    "⚡ Transformer Lab": ("Transformer Insight Studio", "⚡"),
 }
 
 
@@ -306,6 +308,8 @@ def main() -> None:
         translation_page()
     elif selection == "🔄 Word Order":
         word_order_page()
+    elif selection == "⚡ Transformer Lab":
+        transformer_page()
 
 
 if __name__ == "__main__":

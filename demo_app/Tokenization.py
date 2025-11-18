@@ -5,6 +5,8 @@ import streamlit.components.v1 as components
 
 from utils import tokenize_text
 
+PUNCTUATION_BREAKS = {".", ",", "!", "?", ";", ":"}
+
 
 def tokenization_page() -> None:
     """Provide an interactive subword tokenization explorer."""
@@ -26,7 +28,7 @@ def tokenization_page() -> None:
     # Input section
     col1, col2 = st.columns([3, 1])
     with col1:
-        sample_text = "The quick brown fox jumps over the lazy dog."
+        sample_text = "The ancient crystal fortress shuddered dramatically as a newly awakened dragon released an overwhelming wave of uncontrollable magic, forcing a determined band of adventurers to begin an extraordinarily dangerous journey to protect their threatened kingdom."
         text = st.text_area(
             "📝 Enter your text",
             value=sample_text,
@@ -61,18 +63,47 @@ def tokenization_page() -> None:
     st.markdown("---")
     st.markdown("### 🏷️ Token Visualization")
 
-    # Build the styled token chips
-    tokens_html = ""
+    # Build the styled token chips, grouping multi-token words
+    def _starts_new_word(index: int, text: str) -> bool:
+        if index == 0:
+            return True
+        trimmed = text.strip()
+        if not text:
+            return True
+        if text[:1].isspace():
+            return True
+        if trimmed in PUNCTUATION_BREAKS:
+            return True
+        return False
+
+    word_groups = []
+    current_group = []
+
     for idx, (token_id, token_text) in enumerate(zip(tokens, readable)):
-        # Escape special characters for HTML to keep labels visible
-        safe_token = html.escape(token_text)
-        tokens_html += f"""
+        normalized_text = token_text or ""
+        if _starts_new_word(idx, normalized_text) and current_group:
+            word_groups.append(current_group)
+            current_group = []
+        current_group.append({"idx": idx, "text": normalized_text})
+
+    if current_group:
+        word_groups.append(current_group)
+
+    tokens_html = ""
+    for group in word_groups:
+        is_multi = len(group) > 1
+        if is_multi:
+            tokens_html += "<span class=\"multi-token-label\">"
+        for piece in group:
+            safe_token = html.escape(piece["text"])
+            tokens_html += f"""
         <span class="token-chip">
-            <span class="token-number">#{idx + 1}</span>
+            <span class="token-number">#{piece["idx"] + 1}</span>
         <span class="token-text">{safe_token}</span>
-        <span class="token-id">ID: {token_id}</span>
         </span>
         """
+        if is_multi:
+            tokens_html += "</span>"
 
     style_and_tokens = f"""
     <style>
@@ -108,10 +139,27 @@ def tokenization_page() -> None:
     .token-text {{
         font-weight: 600;
     }}
-    .token-id {{
-        font-size: 0.75rem;
-        opacity: 0.85;
-        margin-left: 0.5rem;
+    .multi-token-label {{
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.7rem;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
+        box-shadow: 0 8px 20px rgba(249, 115, 22, 0.25);
+    }}
+    .multi-token-label .token-chip {{
+        background: rgba(255, 255, 255, 0.25);
+        box-shadow: none;
+        color: #0f172a;
+        border-radius: 12px;
+    }}
+    .multi-token-label .token-chip .token-number {{
+        background: rgba(255, 255, 255, 0.45);
+        color: #0f172a;
+    }}
+    .multi-token-label .token-chip .token-text {{
+        color: #0f172a;
     }}
     </style>
     <div class="token-wrapper">
