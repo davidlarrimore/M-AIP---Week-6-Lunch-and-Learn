@@ -1,0 +1,6 @@
+streamlit
+openai
+numpy
+tiktoken
+plotly
+python-dotenv
