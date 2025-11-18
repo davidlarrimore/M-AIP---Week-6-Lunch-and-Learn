@@ -1,0 +1,22 @@
+[theme]
+# Primary theme colors
+primaryColor = "#667eea"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f6f8fb"
+textColor = "#1f2937"
+font = "sans serif"
+
+[server]
+# Server settings
+headless = true
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+# Browser settings
+gatherUsageStats = false
+
+[client]
+# Client settings
+showErrorDetails = true
+toolbarMode = "auto"
