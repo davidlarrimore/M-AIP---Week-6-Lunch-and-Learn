@@ -1,17 +1,18 @@
+"""Homepage and navigation shell for the Streamlit NLP demo."""
+
 import streamlit as st
 
 from Tokenization import tokenization_page
 from Embeddings import embeddings_page
 from Translation import translation_page
-from WordOrder import word_order_page
 from TransformerDemo import transformer_page
 
+# Primary navigation map used by the sidebar radio options.
 PAGE_NAVIGATION = {
     "🏠 Home": ("Home / Overview", "🏠"),
     "🔤 Tokenization": ("Tokenization Playground", "🔤"),
     "🎯 Embeddings": ("Embedding Similarity Explorer", "🎯"),
     "🌐 Translation": ("Translation Sandbox", "🌐"),
-    "🔄 Word Order": ("Word Order & Transformer Demo", "🔄"),
     "⚡ Transformer Lab": ("Transformer Insight Studio", "⚡"),
 }
 
@@ -251,9 +252,9 @@ def show_home() -> None:
         st.markdown(
             """
             <div class="feature-card">
-                <div class="feature-icon">🔄</div>
-                <div class="feature-title">Word Order Analysis</div>
-                <div class="feature-desc">Observe how positional encoding affects translation</div>
+                <div class="feature-icon">⚡</div>
+                <div class="feature-title">Transformer Lab</div>
+                <div class="feature-desc">Inspect attention patterns and prompt-driven reasoning</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -333,8 +334,6 @@ def main() -> None:
         embeddings_page()
     elif selection == "🌐 Translation":
         translation_page()
-    elif selection == "🔄 Word Order":
-        word_order_page()
     elif selection == "⚡ Transformer Lab":
         transformer_page()
 

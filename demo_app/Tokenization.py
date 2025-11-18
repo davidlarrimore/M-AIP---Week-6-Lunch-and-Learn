@@ -1,3 +1,5 @@
+"""Interactive visualization for tokenization and byte-pair encoding."""
+
 import html
 
 import streamlit as st
@@ -5,6 +7,7 @@ import streamlit.components.v1 as components
 
 from utils import tokenize_text
 
+# Characters that should always be treated as single-token boundaries.
 PUNCTUATION_BREAKS = {".", ",", "!", "?", ";", ":"}
 
 
@@ -65,6 +68,7 @@ def tokenization_page() -> None:
 
     # Build the styled token chips, grouping multi-token words
     def _starts_new_word(index: int, text: str) -> bool:
+        """Return True when a token should start a new visual group."""
         if index == 0:
             return True
         trimmed = text.strip()
@@ -76,6 +80,7 @@ def tokenization_page() -> None:
             return True
         return False
 
+    # Track contiguous tokens that belong to the same word for nicer chips.
     word_groups = []
     current_group = []
 
@@ -89,6 +94,7 @@ def tokenization_page() -> None:
     if current_group:
         word_groups.append(current_group)
 
+    # Render each group as either a single chip or stacked chips.
     tokens_html = ""
     for group in word_groups:
         is_multi = len(group) > 1

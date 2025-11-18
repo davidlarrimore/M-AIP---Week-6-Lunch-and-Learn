@@ -1,3 +1,5 @@
+"""Semantic search playground that visualizes embedding similarity."""
+
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
@@ -5,6 +7,7 @@ import plotly.graph_objects as go
 from utils import embed_text, cosine_similarity
 
 
+# Fictional reports used as the embedding search corpus.
 DATABASE_ENTRIES = [
     {
         "title": "Shoplifting",
@@ -186,6 +189,7 @@ def embeddings_page() -> None:
         if not base_text.strip():
             st.warning("⚠️ Please provide a search query")
         else:
+            # Defer the heavy embedding work to a spinner so the UI stays responsive.
             with st.spinner("🔄 Generating embeddings and calculating similarities..."):
                 base_embedding = embed_text(base_text)
                 results = []
@@ -204,6 +208,7 @@ def embeddings_page() -> None:
     st.markdown("---")
 
     if st.session_state["embedding_results"]:
+        # Reuse the last computed embedding scores for display updates.
         results = st.session_state["embedding_results"]
         st.markdown("### 📊 Similarity Scores (All Database Entries)")
 
@@ -216,6 +221,7 @@ def embeddings_page() -> None:
         hover_texts = [f"<b>{entry['title']}</b><br>Similarity: {entry['score']:.3f}<br><br>{entry['text'][:100]}..."
                       for entry in results]
 
+        # Build a bar chart that shows cosine similarity per report type.
         fig = go.Figure(data=[
             go.Bar(
                 x=labels,

@@ -1,4 +1,7 @@
+"""Shared utilities for tokenization, embeddings, and translation helpers."""
+
 import os
+from typing import List, Tuple
 
 import numpy as np
 import streamlit as st
@@ -6,11 +9,11 @@ import tiktoken
 from dotenv import load_dotenv
 from openai import OpenAI
 from tiktoken import Encoding
-from typing import List, Tuple
 
 
 load_dotenv()
 
+# Environment keys and default model values used throughout the demo.
 EMBEDDING_MODEL_ENV = "OPENAI_EMBEDDING_MODEL"
 TRANSLATION_MODEL_ENV = "OPENAI_TRANSLATION_MODEL"
 GENERATION_MODEL_ENV = "OPENAI_GENERATION_MODEL"
@@ -93,6 +96,53 @@ def translate_text(text: str, target_lang: str, context: str = "") -> str:
     if context.strip():
         prompt += f" Context: {context.strip()}"
     prompt += f"\nSentence: {cleaned}"
+    response = client.chat.completions.create(
+        model=translation_model,
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a precise translator for educational demos. Keep the answer short.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.2,
+    )
+    return response.choices[0].message.content.strip()
+
+
+def translate_with_source_language(text: str, source_lang: str, target_lang: str, context: str = "") -> str:
+    """Translate text from a specific source language to target language with optional context."""
+    cleaned = text.strip()
+    if not cleaned:
+        return ""
+    client = get_openai_client()
+    translation_model = _env_value(TRANSLATION_MODEL_ENV, DEFAULT_TRANSLATION_MODEL)
+    prompt = f"Translate the following {source_lang} sentence into {target_lang}. Only return the translation."
+    if context.strip():
+        prompt += f" Context: {context.strip()}"
+    prompt += f"\n{source_lang} sentence: {cleaned}"
+    response = client.chat.completions.create(
+        model=translation_model,
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a precise translator for educational demos. Keep the answer short and accurate.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.2,
+    )
+    return response.choices[0].message.content.strip()
+
+
+def translate_context_to_language(context: str, target_lang: str) -> str:
+    """Translate English context into the target language."""
+    cleaned = context.strip()
+    if not cleaned:
+        return ""
+    client = get_openai_client()
+    translation_model = _env_value(TRANSLATION_MODEL_ENV, DEFAULT_TRANSLATION_MODEL)
+    prompt = f"Translate this context into {target_lang}. Only return the translation.\nContext: {cleaned}"
     response = client.chat.completions.create(
         model=translation_model,
         messages=[

@@ -1,3 +1,5 @@
+"""Hands-on lab for visualizing transformer sampling and token probabilities."""
+
 import html
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -11,10 +13,12 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 from utils import get_generation_model, get_openai_client, tokenize_text
 
 
+# Default prompts keep the story consistent across user sessions.
 DEFAULT_PROMPT = "Once upon a time, "
 
 DEFAULT_SYSTEM_PROMPT = """You are a master storyteller. Your only job is to continue the user's text naturally, coherently, and in a narrative style."""
 
+# Tokens that should remain glued to the previous word when rendering context.
 PUNCTUATION_TOKENS = {".", ",", "!", "?", ";", ":"}
 
 
@@ -248,6 +252,7 @@ def request_next_token_distribution(context_text: str, temperature: float, syste
         top_logprobs = {tokens[0]: 0.0}
 
     logps = np.array([float(top_logprobs[token]) for token in tokens], dtype=float)
+    # Convert log probabilities into a numerically stable probability simplex.
     logps = logps - np.max(logps)
     probs = np.exp(logps)
     total = np.sum(probs)
@@ -257,6 +262,7 @@ def request_next_token_distribution(context_text: str, temperature: float, syste
         normalized = probs / total
     if normalized.size == 0:
         normalized = np.array([1.0], dtype=float)
+    # Normalize spacing so displayed tokens look natural inside the UI.
     norm_tokens = [normalize_token(token) for token in tokens]
     raw_log_probs = {
         normalize_token(token): float(logprob)
@@ -305,6 +311,7 @@ def transformer_page() -> None:
 
     st.markdown("# 🧠 Transformer Insight Studio")
 
+    # Metadata for the three high-level cards displayed on the page.
     panel_meta = {
         "Prompt Setup": {
             "desc": "Set the scene with a starter prompt, temperature, and step count.",
@@ -326,7 +333,7 @@ def transformer_page() -> None:
         },
     }
 
-    # Initialize session state
+    # Initialize session state with sensible defaults for first-time visitors.
     if "prompt_source" not in st.session_state:
         st.session_state["prompt_source"] = DEFAULT_PROMPT
     if "system_prompt" not in st.session_state:
@@ -344,6 +351,7 @@ def transformer_page() -> None:
     if "prompt_tokens" not in st.session_state:
         st.session_state["prompt_tokens"] = []
 
+    # Local references keep the rendering code readable.
     token_history = st.session_state["token_history"]
     viewing_index = st.session_state["viewing_index"]
     is_setup = len(token_history) == 0
