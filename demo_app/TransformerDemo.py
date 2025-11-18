@@ -13,6 +13,8 @@ from utils import get_generation_model, get_openai_client, tokenize_text
 
 DEFAULT_PROMPT = "Once upon a time, "
 
+DEFAULT_SYSTEM_PROMPT = """You are a master storyteller. Your only job is to continue the user's text naturally, coherently, and in a narrative style."""
+
 PUNCTUATION_TOKENS = {".", ",", "!", "?", ";", ":"}
 
 
@@ -176,7 +178,7 @@ def plot_distribution(top_choices: List[Dict[str, Any]]) -> None:
     st.plotly_chart(fig, use_container_width=True)
 
 
-def request_next_token_distribution(context_text: str, temperature: float, top_k: int = 8) -> Dict[str, Any]:
+def request_next_token_distribution(context_text: str, temperature: float, system_prompt: str = DEFAULT_SYSTEM_PROMPT, top_k: int = 8) -> Dict[str, Any]:
     """Call the configured transformer model to get logprob distributions."""
     client = get_openai_client()
     model = get_generation_model()
@@ -185,13 +187,7 @@ def request_next_token_distribution(context_text: str, temperature: float, top_k
         messages=[
             {
                 "role": "system",
-                "content": (
-                    "You are a master storyteller. "
-                    "Your only job is to continue the user's text naturally, coherently, "
-                    "and in a narrative style. "
-                    "Output exactly one token at a time as the next part of the story, "
-                    "with no explanations. "
-                ),
+                "content": system_prompt,
             },
             {"role": "user", "content": context_text},
         ],
@@ -333,6 +329,8 @@ def transformer_page() -> None:
     # Initialize session state
     if "prompt_source" not in st.session_state:
         st.session_state["prompt_source"] = DEFAULT_PROMPT
+    if "system_prompt" not in st.session_state:
+        st.session_state["system_prompt"] = DEFAULT_SYSTEM_PROMPT
     if "temperature" not in st.session_state:
         st.session_state["temperature"] = 0.8
     if "show_detail" not in st.session_state:
@@ -442,10 +440,17 @@ def transformer_page() -> None:
         col_main, col_side = st.columns([2.5, 1.5])
         with col_main:
             st.text_area(
+                "🤖 System Prompt",
+                value=st.session_state["system_prompt"],
+                key="system_prompt",
+                height=120,
+                help="Instructions that guide the model's behavior for token generation",
+            )
+            st.text_area(
                 "✍️ Enter a starter prompt",
                 value=prompt_text,
                 key="prompt_source",
-                height=150,
+                height=120,
             )
             temperature = st.slider(
                 "Temperature (creativity)",
@@ -668,7 +673,8 @@ def transformer_page() -> None:
                 st.session_state["prompt_tokens"] = prompt_tokens
 
                 # Get first token
-                token_data = request_next_token_distribution(prompt, temperature)
+                system_prompt = st.session_state["system_prompt"]
+                token_data = request_next_token_distribution(prompt, temperature, system_prompt)
                 next_token = token_data["token"]
                 distribution = token_data["distribution"]
                 log_probs = token_data.get("log_probs", {})
@@ -718,7 +724,8 @@ def transformer_page() -> None:
                         context = st.session_state["current_context"]
 
                         # Get next token
-                        token_data = request_next_token_distribution(context, temperature)
+                        system_prompt = st.session_state["system_prompt"]
+                        token_data = request_next_token_distribution(context, temperature, system_prompt)
                         next_token = token_data["token"]
                         distribution = token_data["distribution"]
                         log_probs = token_data.get("log_probs", {})
@@ -762,4 +769,6 @@ def transformer_page() -> None:
             st.session_state["current_context"] = ""
             st.session_state["viewing_index"] = 0
             st.session_state["prompt_tokens"] = []
+            st.session_state["prompt_source"] = DEFAULT_PROMPT
+            st.session_state["system_prompt"] = DEFAULT_SYSTEM_PROMPT
             st.rerun()

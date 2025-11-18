@@ -125,28 +125,58 @@ def apply_custom_css() -> None:
             background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
         }
 
-        [data-testid="stSidebar"] .stRadio > label {
-            color: white;
-            font-weight: 600;
-            font-size: 1.1rem;
+        /* Navigation link styling */
+        [data-testid="stSidebar"] label[data-testid="stWidgetLabel"][aria-hidden="true"] {
+            display: none;
         }
 
-        /* Radio button styling */
         [data-testid="stSidebar"] .stRadio > div {
-            gap: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
         }
 
         [data-testid="stSidebar"] .stRadio label {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 0.8rem 1rem;
-            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
             transition: all 0.3s ease;
             color: white;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            box-sizing: border-box;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1.05rem;
+            gap: 0.5rem;
+        }
+
+        [data-testid="stSidebar"] .stRadio label > div:first-child {
+            display: none;
+        }
+
+        [data-testid="stSidebar"] .stRadio label > div:last-child {
+            flex: 1;
+        }
+
+        [data-testid="stSidebar"] .stRadio label > div:last-child * {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+        }
+
+        [data-testid="stSidebar"] .stRadio label[aria-checked="true"] {
+            background: rgba(255, 255, 255, 0.25);
+            color: #ffffff;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
         }
 
         [data-testid="stSidebar"] .stRadio label:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateX(5px);
+            background: rgba(255, 255, 255, 0.18);
+            color: #ffffff;
+            transform: translateX(4px);
         }
 
         /* Responsive design */
@@ -281,9 +311,6 @@ def main() -> None:
     apply_custom_css()
 
     # Sidebar navigation with icons
-    st.sidebar.markdown("## 🧭 Navigation")
-    st.sidebar.markdown("---")
-
     nav_options = list(PAGE_NAVIGATION.keys())
     selection = st.sidebar.radio("", nav_options, index=0, label_visibility="collapsed")
 
@@ -291,7 +318,7 @@ def main() -> None:
     st.sidebar.markdown(
         """
         <div style='text-align: center; padding: 1rem; color: white;'>
-            <p style='font-size: 0.9rem; opacity: 0.8;'>🤖 Powered by OpenAI</p>
+            <p style='font-size: 0.9rem; opacity: 0.8;'>🤖 Powered by Aiuto</p>
         </div>
         """,
         unsafe_allow_html=True,

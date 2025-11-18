@@ -5,9 +5,32 @@ import plotly.graph_objects as go
 from utils import embed_text, cosine_similarity
 
 
-DEFAULT_COMPARE = """A fast fox leaps over a sleepy dog.
-The sun is shining on the meadow.
-Astronomy books sit on the shelf."""
+DATABASE_ENTRIES = [
+    {
+        "title": "Shoplifting",
+        "text": "[2024-01-15 09:45] Case #3012: Shoplifting incident at Walmart - two juveniles observed concealing electronics and clothing items, fled on foot when confronted by security."
+    },
+    {
+        "title": "Assault",
+        "text": "[2024-01-16 18:30] Incident #3156: Aggravated assault reported at Murphy's Bar, victim sustained lacerations to face and torso, suspect described as 6'2\" male wearing leather jacket."
+    },
+    {
+        "title": "Vehicle Pursuit",
+        "text": "[2024-01-17 14:23] Report #2891: Vehicle pursuit terminated after suspect in maroon pickup truck evaded officers at high speed on Highway 101 northbound."
+    },
+    {
+        "title": "Domestic Disturbance",
+        "text": "[2024-01-18 11:20] Report #3298: Domestic disturbance at 1425 Oak Street, neighbors reported loud arguing and breaking glass, both parties separated upon arrival."
+    },
+    {
+        "title": "Burglary",
+        "text": "[2024-01-19 22:15] Case #3445: Burglary in progress at residential address, suspect gained entry through rear window, homeowner's security system triggered alarm at 10:15 PM."
+    },
+    {
+        "title": "Construction Theft",
+        "text": "[2024-01-20 16:40] Report #3567: Theft reported from construction site - power tools and copper wiring stolen overnight, estimated value $8,000."
+    }
+]
 
 
 def describe_similarity(score: float) -> str:
@@ -34,82 +57,164 @@ def get_similarity_color(score: float) -> str:
 
 def embeddings_page() -> None:
     """Show embeddings and cosine similarity in an interactive chart."""
-    st.markdown("# 🎯 Embedding Similarity Explorer")
+    st.markdown("# 🎯 Semantic Search with Vector Embeddings")
     st.markdown(
         """
         <div style='background: linear-gradient(135deg, #f6f8fb 0%, #e9ecef 100%);
         padding: 1.5rem; border-radius: 12px; border-left: 4px solid #667eea; margin-bottom: 1.5rem;'>
             <p style='margin: 0; color: #4b5563; font-size: 1.05rem;'>
-                Generate vector representations and compare them visually. Explore how embeddings
-                capture semantic meaning and measure similarity between different texts.
+                <strong>How it works:</strong> Vector embeddings convert text into numerical representations that capture
+                meaning. When you search for a concept, the system finds reports with similar <em>meaning</em>, not just
+                matching keywords.
+            </p>
+            <p style='margin: 0.8rem 0 0 0; color: #4b5563;'>
+                <strong>Try this:</strong> Search for "red truck fleeing the scene" and see how it matches the vehicle pursuit
+                report, while showing low similarity to unrelated incidents like shoplifting or domestic disturbances.
             </p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # Input section in columns
-    col1, col2 = st.columns([1, 1])
+    # Initialize search query in session state
+    if "query_input" not in st.session_state:
+        st.session_state["query_input"] = "Looking for incidents with a red truck fleeing the scene"
 
-    with col1:
-        st.markdown("### 📌 Anchor Sentence")
-        base_text = st.text_area(
+    # Database entries at the top (full width) - displayed as styled code block
+    st.markdown("### 📋 Vector Collection")
+
+    # Build the display HTML for database entries
+    import html
+
+    # Add custom scrollbar styling
+    st.markdown("""
+        <style>
+        .db-entries-container {
+            background: #1e1e1e;
+            padding: 0.8rem;
+            border-radius: 8px;
+            font-family: "Courier New", monospace;
+            font-size: 0.85rem;
+            color: #d4d4d4;
+            max-height: 200px;
+            overflow-y: scroll;
+        }
+        .db-entries-container::-webkit-scrollbar {
+            width: 14px;
+        }
+        .db-entries-container::-webkit-scrollbar-track {
+            background: #3d3d3d;
+            border-radius: 6px;
+        }
+        .db-entries-container::-webkit-scrollbar-thumb {
+            background: #d4d4d4;
+            border-radius: 6px;
+            border: 2px solid #3d3d3d;
+        }
+        .db-entries-container::-webkit-scrollbar-thumb:hover {
+            background: #ffffff;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    entries_html = "<div class='db-entries-container'>"
+
+    for entry in DATABASE_ENTRIES:
+        # Color coding for different report types
+        color_map = {
+            "Shoplifting": "#fbbf24",  # yellow
+            "Assault": "#ef4444",  # red
+            "Vehicle Pursuit": "#3b82f6",  # blue
+            "Domestic Disturbance": "#f97316",  # orange
+            "Burglary": "#a855f7",  # purple
+            "Construction Theft": "#10b981",  # green
+        }
+        color = color_map.get(entry["title"], "#6b7280")
+
+        # Escape the text to prevent HTML injection
+        safe_text = html.escape(entry["text"])
+
+        entries_html += f"<div style='margin-bottom: 0.4rem; padding: 0.3rem 0.5rem; background: #2d2d2d; border-radius: 3px; border-left: 3px solid {color};'><span style='color: #9ca3af;'>{safe_text}</span></div>"
+
+    entries_html += "</div>"
+    st.markdown(entries_html, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Row: Example buttons (4/12) and Search Query (8/12)
+    col_examples, col_query = st.columns([4, 8])
+
+    with col_examples:
+        st.markdown("### 🔍 Try Example Searches")
+        if st.button("🚗 Vehicle Pursuit", use_container_width=True):
+            st.session_state["query_input"] = "Looking for incidents with a red truck fleeing the scene"
+            st.rerun()
+        if st.button("🏪 Theft Cases", use_container_width=True):
+            st.session_state["query_input"] = "Reports involving stolen property or theft"
+            st.rerun()
+        if st.button("👊 Violent Incidents", use_container_width=True):
+            st.session_state["query_input"] = "Physical violence or assault cases"
+            st.rerun()
+
+    with col_query:
+        st.markdown("### 📌 Search Query")
+
+        def on_query_change():
+            """Auto-trigger search when text input changes (Enter key pressed)"""
+            st.session_state["trigger_search"] = True
+
+        base_text = st.text_input(
             "Base text for comparison",
-            value="A curious cat investigates a sunbeam.",
-            height=120,
+            value=st.session_state["query_input"],
             label_visibility="collapsed",
-            help="This is the reference text that all others will be compared against",
+            help="Type your search query and press Enter to search",
+            key="query_input",
+            on_change=on_query_change,
+            placeholder="Type your search query and press Enter...",
         )
 
-    with col2:
-        st.markdown("### 📋 Comparison Sentences")
-        comparison_input = st.text_area(
-            "Enter sentences to compare (one per line)",
-            value=DEFAULT_COMPARE,
-            height=120,
-            label_visibility="collapsed",
-            help="Enter multiple sentences, one per line",
-        )
+        # Search button below query in same column
+        if st.button("🔍 Search Database (Find Similar Reports)", use_container_width=True, type="primary"):
+            st.session_state["trigger_search"] = True
 
     if "embedding_results" not in st.session_state:
         st.session_state["embedding_results"] = []
 
-    # Center-aligned button
-    col_button = st.columns([1, 2, 1])
-    with col_button[1]:
-        if st.button("🚀 Generate Embeddings & Compare", use_container_width=True, type="primary"):
-            candidates = [
-                line.strip()
-                for line in comparison_input.splitlines()
-                if line.strip()
-            ]
-            if not base_text.strip() or not candidates:
-                st.warning("⚠️ Provide both an anchor sentence and at least one comparison sentence")
-            else:
-                with st.spinner("🔄 Generating embeddings and calculating similarities..."):
-                    base_embedding = embed_text(base_text)
-                    results = []
-                    for candidate in candidates:
-                        candidate_embedding = embed_text(candidate)
-                        score = cosine_similarity(base_embedding, candidate_embedding)
-                        results.append(
-                            {
-                                "text": candidate,
-                                "score": round(score, 3),
-                            }
-                        )
-                    st.session_state["embedding_results"] = results
+    # Perform search if triggered
+    if st.session_state.get("trigger_search", False):
+        st.session_state["trigger_search"] = False
+        if not base_text.strip():
+            st.warning("⚠️ Please provide a search query")
+        else:
+            with st.spinner("🔄 Generating embeddings and calculating similarities..."):
+                base_embedding = embed_text(base_text)
+                results = []
+                for entry in DATABASE_ENTRIES:
+                    candidate_embedding = embed_text(entry["text"])
+                    score = cosine_similarity(base_embedding, candidate_embedding)
+                    results.append(
+                        {
+                            "title": entry["title"],
+                            "text": entry["text"],
+                            "score": round(score, 3),
+                        }
+                    )
+                st.session_state["embedding_results"] = results
 
     st.markdown("---")
 
     if st.session_state["embedding_results"]:
         results = st.session_state["embedding_results"]
-        st.markdown("### 📊 Similarity Results")
+        st.markdown("### 📊 Similarity Scores (All Database Entries)")
 
-        # Create enhanced plotly chart
-        labels = [entry["text"][:50] + "..." if len(entry["text"]) > 50 else entry["text"] for entry in results]
+        # Create enhanced plotly chart using titles
+        labels = [entry["title"] for entry in results]
         scores = [entry["score"] for entry in results]
         colors = [get_similarity_color(score) for score in scores]
+
+        # Create custom hover text with full entry text
+        hover_texts = [f"<b>{entry['title']}</b><br>Similarity: {entry['score']:.3f}<br><br>{entry['text'][:100]}..."
+                      for entry in results]
 
         fig = go.Figure(data=[
             go.Bar(
@@ -121,31 +226,38 @@ def embeddings_page() -> None:
                     color=colors,
                     line=dict(color='rgba(0,0,0,0.2)', width=1)
                 ),
-                hovertemplate="<b>%{x}</b><br>Similarity: %{y:.3f}<extra></extra>",
+                hovertext=hover_texts,
+                hovertemplate="%{hovertext}<extra></extra>",
             )
         ])
 
         fig.update_layout(
             yaxis=dict(
                 range=[0, 1],
-                title="Cosine Similarity Score",
+                title=dict(
+                    text="Cosine Similarity Score",
+                    font=dict(size=14),
+                ),
                 gridcolor='rgba(0,0,0,0.1)',
             ),
             xaxis=dict(
-                title="Comparison Sentences",
-                tickangle=-45,
+                title=dict(
+                    text="Report Type",
+                    font=dict(size=14),
+                ),
+                tickangle=0,
             ),
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
-            height=400,
-            margin=dict(t=20, b=100),
-            font=dict(size=12),
+            height=600,
+            margin=dict(t=30, b=120, l=80, r=40),
+            font=dict(size=13),
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
         # Results cards
-        st.markdown("### 🏆 Detailed Results")
+        st.markdown("### 🏆 Top Matching Reports (Ranked by Similarity)")
 
         # Sort results by score
         sorted_results = sorted(results, key=lambda x: x["score"], reverse=True)
@@ -183,25 +295,34 @@ def embeddings_page() -> None:
             )
 
         # Information expander
-        with st.expander("ℹ️ Understanding Cosine Similarity"):
+        with st.expander("ℹ️ How Vector Similarity Works"):
             st.markdown(
                 """
-                **What is Cosine Similarity?**
-                - A measure of similarity between two vectors (0 to 1 scale)
-                - 1.0 = Identical meaning/direction
-                - 0.0 = Completely different
+                **What are Embeddings?**
 
-                **How Embeddings Work:**
-                - Text is converted to high-dimensional vectors
-                - Similar meanings cluster together in vector space
-                - Distance between vectors indicates semantic similarity
+                Embeddings convert text into high-dimensional vectors (lists of numbers) that represent the *meaning*
+                of the text. Sentences with similar meanings have vectors that point in similar directions.
 
-                **Interpretation Guide:**
-                - **0.9 - 1.0**: Nearly identical meaning
-                - **0.75 - 0.9**: Strong semantic relationship
-                - **0.5 - 0.75**: Moderate topical overlap
-                - **< 0.5**: Weak or no relationship
+                **Cosine Similarity:**
+
+                This measures how similar two vectors are on a scale from 0 to 1:
+                - **1.0** = Identical or nearly identical meaning
+                - **0.75-0.9** = Strong semantic similarity (related concepts)
+                - **0.5-0.75** = Moderate similarity (some overlap)
+                - **Below 0.5** = Little to no relationship
+
+                **Why This Matters for Law Enforcement:**
+
+                - Search by *concept* rather than exact keywords
+                - "Red truck fleeing" will match "vehicle pursuit with pickup truck"
+                - Different witnesses describe the same event differently - embeddings connect them
+                - Quickly filter out unrelated incidents (assaults, burglaries) when searching for vehicle pursuits
+
+                **Try Different Searches:**
+                - "Theft of property" → Should match shoplifting and burglary
+                - "Physical altercation" → Should match assault
+                - "Vehicle escaping" → Should match the pursuit report
                 """
             )
     else:
-        st.info("💡 Click the button above to generate embeddings and see similarity comparisons")
+        st.info("💡 Click the search button above to find similar reports in the database using vector similarity")
