@@ -5,3 +5,10 @@ numpy
 tiktoken
 plotly
 python-dotenv
+datasets
+pandas
+scikit-learn
+nltk
+vaderSentiment
+gensim
+wordcloud

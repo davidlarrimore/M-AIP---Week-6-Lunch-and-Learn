@@ -6,6 +6,7 @@ from Tokenization import tokenization_page
 from Embeddings import embeddings_page
 from Translation import translation_page
 from TransformerDemo import transformer_page
+from SentimentAnalysis import sentiment_analysis_page
 
 # Primary navigation map used by the sidebar radio options.
 PAGE_NAVIGATION = {
@@ -14,6 +15,7 @@ PAGE_NAVIGATION = {
     "🎯 Embeddings": ("Embedding Similarity Explorer", "🎯"),
     "🌐 Translation": ("Translation Sandbox", "🌐"),
     "⚡ Transformer Lab": ("Transformer Insight Studio", "⚡"),
+    "💭 Sentiment Analysis": ("Sentiment & Topic Modeling", "💭"),
 }
 
 
@@ -260,6 +262,17 @@ def show_home() -> None:
             unsafe_allow_html=True,
         )
 
+        st.markdown(
+            """
+            <div class="feature-card">
+                <div class="feature-icon">💭</div>
+                <div class="feature-title">Sentiment Analysis</div>
+                <div class="feature-desc">Analyze customer sentiment and extract topics from reviews</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
     st.divider()
 
     # Two-column layout for objectives and setup
@@ -336,6 +349,8 @@ def main() -> None:
         translation_page()
     elif selection == "⚡ Transformer Lab":
         transformer_page()
+    elif selection == "💭 Sentiment Analysis":
+        sentiment_analysis_page()
 
 
 if __name__ == "__main__":

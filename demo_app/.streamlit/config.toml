@@ -10,7 +10,7 @@ font = "sans serif"
 # Server settings
 headless = true
 enableCORS = false
-enableXsrfProtection = true
+enableXsrfProtection = false
 
 [browser]
 # Browser settings
