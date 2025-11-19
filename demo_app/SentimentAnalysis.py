@@ -3,8 +3,9 @@
 import html
 import re
 import time
+import random
 from collections import Counter
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import nltk
 import numpy as np
@@ -41,28 +42,8 @@ def download_nltk_data():
 download_nltk_data()
 
 
-# Category mapping for Amazon product categories
-CATEGORY_MAPPING = {
-    'book': 'Books',
-    'dvd': 'Movies & TV',
-    'electronics': 'Electronics',
-    'kitchen': 'Kitchen & Home',
-    'kitchen_&_housewares': 'Kitchen & Home',
-    'apparel': 'Clothing',
-    'camera': 'Electronics',
-    'health_&_personal_care': 'Health & Personal Care',
-    'music': 'Music',
-    'software': 'Software',
-    'sports_&_outdoors': 'Sports & Outdoors',
-    'toys': 'Toys & Games',
-    'video': 'Movies & TV',
-    'wireless': 'Electronics',
-    'office_product': 'Office Products',
-}
-
-
 @st.cache_data
-def load_amazon_reviews(num_samples: int = 50, seed: int = 42) -> List[Dict]:
+def load_amazon_reviews(num_samples: int = 50, seed: Optional[int] = None) -> List[Dict]:
     """
     Load real Amazon reviews from Hugging Face dataset.
     Uses SetFit/amazon_reviews_multi_en which contains English reviews.
@@ -73,24 +54,8 @@ def load_amazon_reviews(num_samples: int = 50, seed: int = 42) -> List[Dict]:
     # Convert to pandas for easier manipulation
     df = pd.DataFrame(dataset)
 
-    # Sample diverse reviews across different ratings
-    sampled_reviews = []
-
-    # Try to get diverse ratings (1-5 stars)
-    for rating in [1, 2, 3, 4, 5]:
-        rating_reviews = df[df['label'] == rating - 1]  # Labels are 0-4 in this dataset
-        if len(rating_reviews) > 0:
-            # Sample a few from each rating category
-            sample_size = min(num_samples // 5, len(rating_reviews))
-            samples = rating_reviews.sample(n=sample_size, random_state=seed + rating)
-            sampled_reviews.append(samples)
-
-    # Combine all samples
-    if sampled_reviews:
-        final_df = pd.concat(sampled_reviews, ignore_index=True)
-    else:
-        # Fallback: just sample randomly
-        final_df = df.sample(n=min(num_samples, len(df)), random_state=seed)
+    random_state = seed if seed is not None else None
+    final_df = df.sample(n=min(num_samples, len(df)), random_state=random_state)
 
     # Convert to our format
     reviews = []
@@ -98,13 +63,6 @@ def load_amazon_reviews(num_samples: int = 50, seed: int = 42) -> List[Dict]:
         # Extract fields from the dataset
         review_text = row.get('text', row.get('review_body', ''))
         rating = int(row.get('label', 0)) + 1  # Convert 0-4 to 1-5
-
-        # Try to get product category
-        category = row.get('product_category', 'unknown')
-        if isinstance(category, str):
-            category = CATEGORY_MAPPING.get(category.lower(), category.title())
-        else:
-            category = 'General'
 
         # Get product title if available
         product = row.get('review_title', row.get('product_title', f'Product #{idx + 1}'))
@@ -118,7 +76,6 @@ def load_amazon_reviews(num_samples: int = 50, seed: int = 42) -> List[Dict]:
                 'product': product[:100],  # Limit product name length
                 'rating': rating,
                 'review': review_text[:500],  # Limit review length for display
-                'category': category
             })
 
     # Return up to num_samples reviews
@@ -328,6 +285,132 @@ def get_sentiment_emoji(sentiment: str) -> str:
     return emojis.get(sentiment.lower(), "🤔")
 
 
+def build_review_card_html(review: Dict[str, Any], sentiment_result: Dict[str, Any], topic_result: Dict[str, Any]) -> str:
+    """Return HTML for a single review card without leading indentation."""
+    sentiment = sentiment_result["sentiment"]
+    sentiment_color = get_sentiment_color(sentiment)
+    sentiment_emoji = get_sentiment_emoji(sentiment)
+    stars = "⭐" * review["rating"] + "☆" * (5 - review["rating"])
+
+    aspects = topic_result.get("aspects", {})
+    topics = topic_result.get("topics", [])[:3]
+
+    lines = [
+        "<div class='review-card'>",
+        f"<div class='review-header' style='border-left-color: {sentiment_color};'>",
+        "<div style='display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;'>",
+        "<div style='flex: 1;'>",
+        f"<strong style='color: #1f2937; font-size: 1rem;'>{html.escape(review['product'])}</strong>",
+        "</div>",
+        f"<div style='font-size: 1rem;'>{stars}</div>",
+        "</div>",
+        "<div style='color: #4b5563; line-height: 1.5; font-size: 0.95rem; font-style: italic; margin-bottom: 0.8rem;'>",
+        f"\"{html.escape(review['review'])}\"",
+        "</div>",
+        "<div style='margin-bottom: 0.8rem;'>",
+        f"<span class='sentiment-badge' style='background: {sentiment_color};'>",
+        f"{sentiment_emoji} {sentiment.upper()}",
+        "</span>",
+        f"<span class='performance-badge'>⚡ {sentiment_result['processing_time_ms']:.1f}ms</span>",
+        "</div>",
+    ]
+
+    if topics:
+        lines.append("<div style='margin-top: 0.3rem;'>")
+        for topic in topics:
+            lines.append(f"<span class='topic-chip'>🏷️ {html.escape(topic)}</span>")
+        lines.append("</div>")
+
+    if aspects:
+        lines.append("<div style='margin-top: 0.5rem;'>")
+        for aspect, aspect_sentiment in aspects.items():
+            aspect_color = get_sentiment_color(aspect_sentiment)
+            lines.append(
+                f"<span class='aspect-badge' style='background: {aspect_color}; color: white;'>{html.escape(aspect.title())}</span>"
+            )
+        lines.append("</div>")
+
+    lines.append(build_analysis_details_html(review, sentiment_result, topic_result))
+
+    lines.extend(
+        [
+            "</div>",
+            "</div>",
+            "</div>",
+        ]
+    )
+
+    return "\n".join(lines)
+
+
+def build_analysis_details_html(review: Dict[str, Any], sentiment_result: Dict[str, Any], topic_result: Dict[str, Any]) -> str:
+    """Return expandable HTML with sentiment/topic details."""
+    scores = sentiment_result.get('scores', {})
+    key_phrases = sentiment_result.get('key_phrases') or []
+    confidence_pct = sentiment_result.get('confidence', 0) * 100
+    reasoning = html.escape(sentiment_result.get('reasoning', ''))
+
+    key_phrase_items = "".join(f"<li>{html.escape(phrase)}</li>" for phrase in key_phrases)
+    key_phrases_block = (
+        f"<div><strong>Key Phrases:</strong><ul class='analysis-list'>{key_phrase_items}</ul></div>"
+        if key_phrase_items else ""
+    )
+
+    aspects = topic_result.get("aspects", {})
+    aspect_lines = []
+    if aspects:
+        for aspect, aspect_sentiment in aspects.items():
+            aspect_color = get_sentiment_color(aspect_sentiment)
+            aspect_emoji = get_sentiment_emoji(aspect_sentiment)
+            aspect_lines.append(
+                f"<div class='aspect-detail' style='border-left-color: {aspect_color};'>"
+                f"{html.escape(aspect.title())}: {aspect_emoji} {aspect_sentiment.title()}"
+                "</div>"
+            )
+    else:
+        aspect_lines.append("<p style='color: #6b7280;'>No specific product aspects detected.</p>")
+    aspect_items = "".join(aspect_lines)
+
+    topic_summary = html.escape(topic_result.get("summary", ""))
+    topic_summary_block = f"<p><strong>Summary:</strong> {topic_summary}</p>" if topic_summary else ""
+
+    processing_ms = topic_result.get("processing_time_ms", 0.0)
+
+    sentiment_details = "".join([
+        "<div class='analysis-column'>",
+        "<h4>Sentiment Details</h4>",
+        f"<p><strong>Confidence:</strong> {confidence_pct:.1f}%</p>",
+        f"<p><strong>Compound Score:</strong> {scores.get('compound', 0):.3f}</p>",
+        "<ul class='analysis-list'>",
+        f"<li>Positive: {scores.get('pos', 0):.2f}</li>",
+        f"<li>Neutral: {scores.get('neu', 0):.2f}</li>",
+        f"<li>Negative: {scores.get('neg', 0):.2f}</li>",
+        "</ul>",
+        f"<div class='analysis-note'>{reasoning}</div>",
+        key_phrases_block,
+        "</div>",
+    ])
+
+    topic_details = "".join([
+        "<div class='analysis-column'>",
+        "<h4>Topic Analysis</h4>",
+        f"<p><strong>Processing Time:</strong> {processing_ms:.2f}ms</p>",
+        f"<div><strong>Aspect-Based Sentiment:</strong>{aspect_items}</div>",
+        topic_summary_block,
+        "</div>",
+    ])
+
+    return "".join([
+        "<details class='analysis-details'>",
+        "<summary>📊 View Full Analysis</summary>",
+        "<div class='analysis-columns'>",
+        sentiment_details,
+        topic_details,
+        "</div>",
+        "</details>",
+    ])
+
+
 @st.cache_data
 def calculate_aggregate_stats(reviews: List[Dict]) -> Dict[str, Any]:
     """Calculate aggregate statistics from all reviews."""
@@ -335,13 +418,11 @@ def calculate_aggregate_stats(reviews: List[Dict]) -> Dict[str, Any]:
     avg_rating = sum(r["rating"] for r in reviews) / total
 
     rating_distribution = Counter(r["rating"] for r in reviews)
-    category_distribution = Counter(r["category"] for r in reviews)
 
     return {
         "total_reviews": total,
         "average_rating": avg_rating,
         "rating_distribution": dict(rating_distribution),
-        "category_distribution": dict(category_distribution),
     }
 
 
@@ -397,58 +478,55 @@ def sentiment_analysis_page() -> None:
     st.markdown(
         """
         <style>
-        .section-container {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
         .review-card {
-            background: #f9fafb;
-            padding: 1.2rem;
-            border-radius: 10px;
-            margin: 0.8rem 0;
-            border-left: 4px solid #667eea;
-            cursor: pointer;
+            background: white;
+            padding: 0;
+            border-radius: 12px;
+            margin: 1rem 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
             transition: all 0.3s ease;
         }
         .review-card:hover {
-            transform: translateX(4px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
         }
-        .review-card-selected {
-            background: #eef2ff;
-            border-left: 4px solid #4f46e5;
+        .review-header {
+            padding: 1.2rem;
+            border-left: 5px solid;
+        }
+        .review-content {
+            padding: 0 1.2rem 1.2rem 1.2rem;
         }
         .sentiment-badge {
             display: inline-block;
-            padding: 0.4rem 0.8rem;
-            border-radius: 8px;
+            padding: 0.3rem 0.7rem;
+            border-radius: 6px;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+            color: white;
         }
         .topic-chip {
             display: inline-block;
             background: #e0e7ff;
             color: #4338ca;
-            padding: 0.3rem 0.7rem;
-            border-radius: 6px;
+            padding: 0.25rem 0.6rem;
+            border-radius: 5px;
             margin: 0.2rem;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
+            font-weight: 500;
         }
         .performance-badge {
             display: inline-block;
             background: #10b981;
             color: white;
-            padding: 0.3rem 0.6rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
             font-weight: 600;
-            margin-left: 0.5rem;
         }
         .reviews-container {
-            max-height: 500px;
+            max-height: 600px;
             overflow-y: auto;
             padding-right: 0.5rem;
         }
@@ -465,6 +543,87 @@ def sentiment_analysis_page() -> None:
         }
         .reviews-container::-webkit-scrollbar-thumb:hover {
             background: #4f46e5;
+        }
+        .aspect-badge {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin: 0.1rem;
+        }
+        .analysis-details {
+            background: #f9fafb;
+            border-radius: 8px;
+            margin-top: 0.8rem;
+            border: 1px solid #e5e7eb;
+        }
+        .analysis-details summary {
+            cursor: pointer;
+            padding: 0.8rem 1rem;
+            font-weight: 600;
+            color: #1f2937;
+            list-style: none;
+            position: relative;
+        }
+        .analysis-details summary::after {
+            content: "▾";
+            position: absolute;
+            right: 1rem;
+            transition: transform 0.2s ease;
+        }
+        .analysis-details summary::-webkit-details-marker {
+            display: none;
+        }
+        .analysis-details[open] summary {
+            border-bottom: 1px solid #e5e7eb;
+            background: #eef2ff;
+        }
+        .analysis-details[open] summary::after {
+            transform: rotate(180deg);
+        }
+        .analysis-columns {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            padding: 1rem;
+        }
+        .analysis-column {
+            flex: 1;
+            min-width: 240px;
+            background: white;
+            border-radius: 6px;
+            padding: 0.8rem;
+            border: 1px solid #e5e7eb;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+        }
+        .analysis-column h4 {
+            margin-top: 0;
+            margin-bottom: 0.4rem;
+            font-size: 1rem;
+            color: #111827;
+        }
+        .analysis-list {
+            margin: 0.3rem 0 0 1rem;
+            padding: 0;
+        }
+        .analysis-note {
+            background: #eef2ff;
+            padding: 0.6rem;
+            border-radius: 6px;
+            margin-top: 0.6rem;
+            border-left: 4px solid #6366f1;
+            color: #3730a3;
+            font-size: 0.9rem;
+        }
+        .aspect-detail {
+            padding: 0.35rem 0.5rem;
+            margin: 0.2rem 0;
+            background: #f3f4f6;
+            border-left: 4px solid #10b981;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            color: #1f2937;
         }
         </style>
         """,
@@ -509,8 +668,6 @@ def sentiment_analysis_page() -> None:
     )
 
     # Initialize session state
-    if "selected_review_id" not in st.session_state:
-        st.session_state["selected_review_id"] = None
     if "sentiment_results" not in st.session_state:
         st.session_state["sentiment_results"] = {}
     if "topic_results" not in st.session_state:
@@ -519,22 +676,25 @@ def sentiment_analysis_page() -> None:
         st.session_state["reviews_loaded"] = False
     if "sample_reviews" not in st.session_state:
         st.session_state["sample_reviews"] = []
+    if "expanded_reviews" not in st.session_state:
+        st.session_state["expanded_reviews"] = set()
 
     # Section 1: Sample Data Display
-    st.markdown("## 📋 Section 1: Real Amazon Review Data")
+    st.markdown("## 📋 Section 1: Real Amazon Review Data with Integrated Analysis")
     st.markdown("Loading real customer reviews from the **SetFit/amazon_reviews_multi_en** dataset on Hugging Face.")
 
     # Load data button
     if not st.session_state["reviews_loaded"]:
         col1, col2 = st.columns([3, 1])
         with col1:
-            num_reviews = st.slider("Number of reviews to load:", min_value=10, max_value=100, value=50, step=10)
+            num_reviews = st.slider("Number of reviews to load:", min_value=10, max_value=100, value=30, step=10)
         with col2:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("📥 Load Reviews from Dataset", type="primary", use_container_width=True):
                 with st.spinner("Loading real Amazon reviews from Hugging Face..."):
                     try:
-                        reviews = load_amazon_reviews(num_samples=num_reviews)
+                        random_seed = random.randint(0, 2**32 - 1)
+                        reviews = load_amazon_reviews(num_samples=num_reviews, seed=random_seed)
                         st.session_state["sample_reviews"] = reviews
                         st.session_state["reviews_loaded"] = True
                         st.success(f"✅ Loaded {len(reviews)} real Amazon reviews!")
@@ -544,187 +704,104 @@ def sentiment_analysis_page() -> None:
                         st.info("Make sure you have internet connection to download from Hugging Face.")
     else:
         reviews = st.session_state["sample_reviews"]
-        st.success(f"✅ {len(reviews)} real Amazon reviews loaded from Hugging Face")
 
-        if st.button("🔄 Reload Different Reviews", type="secondary"):
-            st.session_state["reviews_loaded"] = False
-            st.session_state["sample_reviews"] = []
-            st.session_state["selected_review_id"] = None
-            st.session_state["sentiment_results"] = {}
-            st.session_state["topic_results"] = {}
-            st.rerun()
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.success(f"✅ {len(reviews)} real Amazon reviews loaded from Hugging Face")
+        with col2:
+            if st.button("🔄 Reload Different Reviews", type="secondary", use_container_width=True):
+                st.session_state["reviews_loaded"] = False
+                st.session_state["sample_reviews"] = []
+                st.session_state["sentiment_results"] = {}
+                st.session_state["topic_results"] = {}
+                st.session_state["expanded_reviews"] = set()
+                st.rerun()
 
     if st.session_state["reviews_loaded"] and st.session_state["sample_reviews"]:
         reviews = st.session_state["sample_reviews"]
 
-        # Display reviews in a scrollable container
-        st.markdown("### Click any review to analyze:")
+        # Precompute analysis for all reviews (fast, enables dashboard metrics)
+        for review in reviews:
+            review_id = review['id']
+            if review_id not in st.session_state["sentiment_results"]:
+                st.session_state["sentiment_results"][review_id] = analyze_sentiment_vader(review['review'])
+            if review_id not in st.session_state["topic_results"]:
+                st.session_state["topic_results"][review_id] = extract_topics_from_single_review(review['review'])
+
+        # Cost & performance savings dashboard
+        st.markdown("### 💰 Cost & Time Savings Dashboard")
+        total_reviews = len(reviews)
+        nlp_total_time_ms = sum(
+            st.session_state["sentiment_results"][r['id']]["processing_time_ms"]
+            for r in reviews
+        )
+        avg_nlp_time_ms = nlp_total_time_ms / total_reviews if total_reviews else 0
+
+        # Estimated LLM costs/times (assumptions based on GPT-4 style API)
+        llm_time_per_review_ms = 1500  # 1.5s average latency
+        llm_cost_per_review = 0.05     # $0.05 per review on average
+        nlp_cost_per_review = 0.0
+
+        total_llm_time_ms = total_reviews * llm_time_per_review_ms
+        total_llm_cost = total_reviews * llm_cost_per_review
+        total_nlp_cost = total_reviews * nlp_cost_per_review
+
+        time_saved_ms = total_llm_time_ms - nlp_total_time_ms
+        cost_saved = total_llm_cost - total_nlp_cost
+
+        st.markdown(
+            f"""
+            <div style='background: linear-gradient(135deg, #ecfccb 0%, #d9f99d 100%);
+            padding: 1.2rem; border-radius: 12px; border-left: 4px solid #65a30d; margin: 1rem 0;'>
+                <div style='display: flex; flex-wrap: wrap; gap: 1.5rem;'>
+                    <div style='flex: 1; min-width: 220px;'>
+                        <div style='font-size: 0.85rem; color: #4d7c0f;'>Average per review</div>
+                        <div style='font-size: 1.6rem; font-weight: 700; color: #1a2e05;'>{avg_nlp_time_ms:.2f} ms</div>
+                        <div style='color: #4d7c0f;'>Traditional NLP processing time</div>
+                    </div>
+                    <div style='flex: 1; min-width: 220px;'>
+                        <div style='font-size: 0.85rem; color: #4d7c0f;'>Estimated LLM time</div>
+                        <div style='font-size: 1.6rem; font-weight: 700; color: #1a2e05;'>{llm_time_per_review_ms / 1000:.2f} sec</div>
+                        <div style='color: #4d7c0f;'>Per-review GPT-style API latency</div>
+                    </div>
+                    <div style='flex: 1; min-width: 220px;'>
+                        <div style='font-size: 0.85rem; color: #4d7c0f;'>Estimated cost avoided</div>
+                        <div style='font-size: 1.6rem; font-weight: 700; color: #1a2e05;'>${cost_saved:,.2f}</div>
+                        <div style='color: #4d7c0f;'>vs. ${total_llm_cost:,.2f} in LLM fees</div>
+                    </div>
+                </div>
+                <div style='margin-top: 0.8rem; font-size: 0.95rem; color: #365314;'>
+                    ✅ Saved ~{time_saved_ms/1000:.2f} seconds of processing time for {total_reviews} reviews by running VADER + keyword models locally.
+                </div>
+                <div style='margin-top: 0.3rem; font-size: 0.8rem; color: #4d7c0f;'>
+                    Assumptions: VADER average = {avg_nlp_time_ms:.2f}ms, LLM average = {llm_time_per_review_ms/1000:.1f}s, LLM cost = ${llm_cost_per_review:.02f}/review.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # Display reviews with integrated analysis
+        st.markdown("### 📝 Reviews (Click to expand full analysis)")
 
         st.markdown("<div class='reviews-container'>", unsafe_allow_html=True)
 
-        # Create columns for better layout
         for idx, review in enumerate(reviews):
-            is_selected = st.session_state["selected_review_id"] == review["id"]
-            card_class = "review-card review-card-selected" if is_selected else "review-card"
+            review_id = review['id']
 
-            # Star rating visualization
-            stars = "⭐" * review["rating"] + "☆" * (5 - review["rating"])
+            sentiment_result = st.session_state["sentiment_results"][review_id]
+            topic_result = st.session_state["topic_results"][review_id]
 
-            review_html = f"""
-            <div class='{card_class}' id='review-{review["id"]}'>
-                <div style='display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;'>
-                    <div>
-                        <strong style='color: #1f2937; font-size: 1rem;'>{html.escape(review["product"])}</strong>
-                        <span style='color: #6b7280; margin-left: 0.5rem;'>({review["category"]})</span>
-                    </div>
-                    <div style='font-size: 1.1rem;'>{stars}</div>
-                </div>
-                <div style='color: #4b5563; line-height: 1.5;'>"{html.escape(review["review"])}"</div>
-            </div>
-            """
-            st.markdown(review_html, unsafe_allow_html=True)
+            review_card_html = build_review_card_html(review, sentiment_result, topic_result)
 
-            # Create button for clicking
-            if st.button(f"Select Review #{review['id']}", key=f"select_{review['id']}", type="secondary"):
-                st.session_state["selected_review_id"] = review["id"]
-                st.rerun()
+            st.markdown(review_card_html, unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
 
         st.divider()
 
-        # Section 2: Real-time Analysis
-        if st.session_state["selected_review_id"] is not None:
-            selected_review = next(r for r in reviews if r["id"] == st.session_state["selected_review_id"])
-
-            st.markdown("## 🔍 Section 2: Real-time Analysis")
-            st.markdown(f"### Analyzing: {selected_review['product']}")
-
-            col1, col2 = st.columns(2)
-
-            with col1:
-                st.markdown("#### 😊 Sentiment Analysis (VADER)")
-
-                review_id = selected_review["id"]
-                if review_id not in st.session_state["sentiment_results"]:
-                    sentiment_result = analyze_sentiment_vader(selected_review["review"])
-                    st.session_state["sentiment_results"][review_id] = sentiment_result
-                else:
-                    sentiment_result = st.session_state["sentiment_results"][review_id]
-
-                sentiment = sentiment_result["sentiment"]
-                confidence = sentiment_result["confidence"]
-                reasoning = sentiment_result["reasoning"]
-                key_phrases = sentiment_result.get("key_phrases", [])
-                proc_time = sentiment_result.get("processing_time_ms", 0)
-
-                sentiment_color = get_sentiment_color(sentiment)
-                sentiment_emoji = get_sentiment_emoji(sentiment)
-
-                st.markdown(
-                    f"""
-                    <div style='background: {sentiment_color}; color: white; padding: 1.5rem;
-                    border-radius: 10px; text-align: center; margin-bottom: 1rem;'>
-                        <div style='font-size: 3rem; margin-bottom: 0.5rem;'>{sentiment_emoji}</div>
-                        <div style='font-size: 1.5rem; font-weight: 700; text-transform: uppercase;'>
-                            {sentiment}
-                        </div>
-                        <div style='font-size: 1rem; opacity: 0.9; margin-top: 0.5rem;'>
-                            Confidence: {confidence:.1%}
-                        </div>
-                        <div style='font-size: 0.85rem; opacity: 0.9; margin-top: 0.3rem;'>
-                            ⚡ Analyzed in {proc_time:.2f}ms
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
-                st.markdown("**How VADER classified this:**")
-                st.info(reasoning)
-
-                if key_phrases:
-                    st.markdown("**Key phrases identified:**")
-                    phrases_html = " ".join([f"<span class='topic-chip'>{html.escape(phrase)}</span>" for phrase in key_phrases])
-                    st.markdown(phrases_html, unsafe_allow_html=True)
-
-            with col2:
-                st.markdown("#### 🏷️ Topic Extraction (Keyword Analysis)")
-
-                if review_id not in st.session_state["topic_results"]:
-                    topic_result = extract_topics_from_single_review(selected_review["review"])
-                    st.session_state["topic_results"][review_id] = topic_result
-                else:
-                    topic_result = st.session_state["topic_results"][review_id]
-
-                topics = topic_result.get("topics", [])
-                aspects = topic_result.get("aspects", {})
-                summary = topic_result.get("summary", "")
-                proc_time = topic_result.get("processing_time_ms", 0)
-
-                st.markdown(f"**Identified Topics:** <span class='performance-badge'>⚡ {proc_time:.2f}ms</span>", unsafe_allow_html=True)
-
-                if aspects:
-                    for topic, aspect_sentiment in aspects.items():
-                        aspect_color = get_sentiment_color(aspect_sentiment)
-                        st.markdown(
-                            f"""
-                            <div style='background: white; padding: 0.8rem; border-radius: 8px;
-                            margin: 0.5rem 0; border-left: 4px solid {aspect_color};'>
-                                <strong style='color: #1f2937;'>{html.escape(topic.title())}</strong>
-                                <span style='float: right; color: {aspect_color}; font-weight: 600;'>
-                                    {aspect_sentiment.title()}
-                                </span>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
-
-                if topics:
-                    st.markdown("**Key terms:**")
-                    topics_html = " ".join([f"<span class='topic-chip'>{html.escape(topic)}</span>" for topic in topics[:5]])
-                    st.markdown(topics_html, unsafe_allow_html=True)
-
-                st.markdown("**Summary:**")
-                st.success(summary)
-
-            st.divider()
-        else:
-            st.info("👆 Click any review above to see real-time sentiment analysis and topic extraction")
-            st.divider()
-
-        # Section 3: Aggregate Dashboards
-        st.markdown("## 📊 Section 3: Aggregate Analysis Dashboard")
-
-        # Batch process all reviews to show speed
-        st.markdown("### ⚡ Batch Processing Performance")
-
-        if st.button("🚀 Analyze All Reviews (Batch Processing)", type="primary"):
-            with st.spinner("Processing all reviews with traditional NLP..."):
-                batch_results = batch_analyze_sentiments(reviews)
-                st.session_state['batch_results'] = batch_results
-
-        if 'batch_results' in st.session_state:
-            batch_results = st.session_state['batch_results']
-            total_time = batch_results['total_time_ms']
-            avg_time = batch_results['avg_time_ms']
-
-            st.markdown(
-                f"""
-                <div style='background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-                padding: 1.2rem; border-radius: 10px; margin-bottom: 1.5rem;'>
-                    <strong style='color: #1e40af; font-size: 1.1rem;'>⚡ Performance Results</strong>
-                    <div style='margin-top: 0.5rem; color: #1e40af;'>
-                        <div>• <strong>Total Processing Time:</strong> {total_time:.2f}ms for {len(reviews)} reviews</div>
-                        <div>• <strong>Average Time per Review:</strong> {avg_time:.2f}ms</div>
-                        <div>• <strong>Throughput:</strong> ~{int(1000/avg_time * 60):,} reviews per minute</div>
-                        <div>• <strong>LLM Comparison:</strong> Same task would take ~{len(reviews) * 1000 / 1000:.1f}-{len(reviews) * 2000 / 1000:.1f} seconds with GPT-4</div>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
+        # Section 2: Aggregate Dashboards
+        st.markdown("## 📊 Section 2: Aggregate Analysis Dashboard")
         st.markdown("Patterns and insights across all reviews in the dataset")
 
         # Calculate aggregate stats
@@ -746,45 +823,24 @@ def sentiment_analysis_page() -> None:
         st.markdown("---")
 
         # Visualizations
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.markdown("### Rating Distribution")
-            rating_df = pd.DataFrame([
-                {"Rating": f"{rating} Stars", "Count": count}
-                for rating, count in sorted(stats["rating_distribution"].items(), reverse=True)
-            ])
-            fig1 = px.bar(
-                rating_df,
-                x="Rating",
-                y="Count",
-                color="Count",
-                color_continuous_scale=["#ef4444", "#f59e0b", "#10b981"],
-            )
-            fig1.update_layout(
-                showlegend=False,
-                height=350,
-                margin=dict(t=20, b=20, l=20, r=20),
-            )
-            st.plotly_chart(fig1, use_container_width=True)
-
-        with col2:
-            st.markdown("### Reviews by Category")
-            category_df = pd.DataFrame([
-                {"Category": cat, "Count": count}
-                for cat, count in stats["category_distribution"].items()
-            ])
-            fig2 = px.pie(
-                category_df,
-                values="Count",
-                names="Category",
-                hole=0.4,
-            )
-            fig2.update_layout(
-                height=350,
-                margin=dict(t=20, b=20, l=20, r=20),
-            )
-            st.plotly_chart(fig2, use_container_width=True)
+        st.markdown("### Rating Distribution")
+        rating_df = pd.DataFrame([
+            {"Rating": f"{rating} Stars", "Count": count}
+            for rating, count in sorted(stats["rating_distribution"].items(), reverse=True)
+        ])
+        fig1 = px.bar(
+            rating_df,
+            x="Rating",
+            y="Count",
+            color="Count",
+            color_continuous_scale=["#ef4444", "#f59e0b", "#10b981"],
+        )
+        fig1.update_layout(
+            showlegend=False,
+            height=350,
+            margin=dict(t=20, b=20, l=20, r=20),
+        )
+        st.plotly_chart(fig1, use_container_width=True)
 
         # Topic modeling on entire dataset
         st.markdown("### 🔍 Topic Modeling (LDA) - Entire Dataset")
@@ -873,11 +929,22 @@ def sentiment_analysis_page() -> None:
             - **Privacy:** No data leaves your infrastructure
             - **Accuracy:** ~80-85% on product reviews (vs ~85-90% for fine-tuned LLMs)
 
-            **When to use:**
-            - High-volume batch processing
-            - Real-time applications
-            - Cost-sensitive scenarios
-            - Offline/air-gapped environments
+            ---
+
+            ### Aspect-Based Sentiment
+
+            **What it is:** Identifying specific product aspects (quality, price, comfort) and their sentiment.
+
+            **How it works:**
+            - Extracts key terms from each review
+            - Maps terms to common product aspects
+            - Analyzes sentiment of sentences mentioning each aspect
+            - Provides granular understanding beyond overall sentiment
+
+            **Business Value:**
+            - Understand what customers like/dislike specifically
+            - Guide product improvements
+            - Track aspect sentiment over time
 
             ---
 
@@ -896,51 +963,6 @@ def sentiment_analysis_page() -> None:
             - **Interpretability:** Clear word-to-topic mappings
             - **No training required:** Works out of the box
             - **Scalability:** Handles millions of documents
-
-            **When to use:**
-            - Exploring unknown datasets
-            - Finding themes in large document collections
-            - Customer feedback analysis
-            - Content categorization
-
-            ---
-
-            ### TF-IDF Keyword Extraction
-
-            **What it is:** Term Frequency - Inverse Document Frequency
-
-            **How it works:**
-            - Measures how important a word is to a document in a collection
-            - Common words are downweighted, distinctive words highlighted
-            - Pure statistical method, no machine learning
-
-            **Advantages:**
-            - Extremely fast
-            - No model training
-            - Interpretable results
-            - Works well with small datasets
-
-            ---
-
-            ### When to Use Traditional NLP vs. LLMs
-
-            **Use Traditional NLP when:**
-            - ✅ You need millisecond response times
-            - ✅ Processing millions of documents
-            - ✅ Working with limited budgets
-            - ✅ Offline/on-premise requirements
-            - ✅ Good-enough accuracy is acceptable
-            - ✅ You want deterministic, explainable results
-
-            **Use LLMs when:**
-            - 🎯 You need nuanced understanding
-            - 🎯 Handling complex, context-dependent text
-            - 🎯 Accuracy is critical
-            - 🎯 Working with creative or ambiguous content
-            - 🎯 Need multi-step reasoning
-            - 🎯 Processing volume is low enough to justify cost
-
-            **Best approach:** Use traditional NLP for initial filtering/categorization, then apply LLMs only to edge cases or high-value items.
             """
         )
 
@@ -956,58 +978,50 @@ def sentiment_analysis_page() -> None:
 
             2. **Load the data** - Click "Load Reviews from Dataset"
                - Explain this is real data from Hugging Face
-               - Show the variety of products and ratings
+               - Show 30 reviews load instantly
 
-            3. **Show Section 1** - Display the sample data
-               - Scroll through reviews to show diversity
+            3. **Show the cost savings dashboard**
+               - Point out instant processing time (single-digit ms)
+               - Highlight the avoided LLM latency and per-review API cost
+               - Reinforce the value for high-volume workloads
 
-            4. **Click a positive review (5 stars)** - Demonstrate real-time analysis
-               - Point out the processing time (1-5ms)
-               - Explain VADER's approach (rule-based, lexicon)
-               - Show the confidence and reasoning
+            4. **Scroll through reviews** - Show integrated analysis
+               - Point out color-coded sentiment (green/yellow/red borders)
+               - Show topic chips and aspect badges
+               - Demonstrate the visual overview
 
-            5. **Click a negative review (1-2 stars)** - Show the contrast
-               - Emphasize how fast it processes negative sentiment
-               - Compare accuracy to what an LLM would find
+            5. **Expand a positive review** - Click expander
+               - Show detailed VADER scores
+               - Explain compound score and confidence
+               - Show aspect-based sentiment breakdown
 
-            6. **Click a mixed review (3 stars)** - Show nuanced analysis
-               - 3-star reviews often have both positive and negative aspects
-               - Show how VADER handles balanced sentiment
+            6. **Expand a negative review** - Show contrast
+               - Point out negative aspects identified
+               - Show how VADER caught the negativity
 
-            7. **Batch processing demo** - Click "Analyze All Reviews"
-               - Show the total time for all reviews
-               - Calculate throughput (thousands per minute)
-               - Compare to LLM cost/time
+            7. **Expand a mixed review** - Show nuance
+               - Demonstrate aspect-based analysis catching both positives and negatives
+               - E.g., "Good quality" but "Poor shipping"
 
-            8. **Topic modeling** - Click "Extract Topics"
-               - Show LDA results
-               - Explain unsupervised discovery
-               - Point out speed (100-500ms for entire dataset)
-
-            9. **Scroll to dashboards** - Show aggregate insights
+            8. **Scroll to dashboards** - Show aggregate insights
+               - Rating distribution
+               - LDA topics
+               - TF-IDF keywords
 
             ### Key Talking Points:
 
-            - **"Traditional NLP still has a place in 2024"** - Not everything needs GPT-4
-            - **"Speed matters"** - Real-time applications, user-facing features
-            - **"Cost matters"** - At scale, LLM costs add up quickly
-            - **"Hybrid approach"** - Use traditional NLP for 95% of cases, LLMs for edge cases
-            - **"Privacy matters"** - Traditional NLP runs locally, no data sent to APIs
-            - **"Reliability matters"** - No API downtime, rate limits, or hallucinations
-            - **"Real data"** - These are actual Amazon customer reviews, not synthetic
+            - **"Instant visual feedback"** - Color-coded borders show sentiment at a glance
+            - **"Detailed on demand"** - Expand for full analysis
+            - **"Aspect-based insights"** - Not just positive/negative, but what specifically
+            - **"Production-ready performance"** - Real-time analysis suitable for user-facing apps
+            - **"Cost-effective scale"** - Process millions for $0
+            - **"Privacy-friendly"** - All analysis happens locally
 
-            ### Questions to Address:
+            ### Interactive Elements:
 
-            **Q: Is traditional NLP less accurate?**
-            A: For sentiment analysis on reviews, VADER achieves ~80-85% accuracy vs ~85-90% for LLMs. The 5-10% accuracy trade-off often isn't worth 1000x slower processing.
-
-            **Q: When should we use LLMs instead?**
-            A: For complex reasoning, creative tasks, or when you need to extract structured information that requires understanding context and nuance.
-
-            **Q: Can we combine both?**
-            A: Absolutely! Use VADER to filter reviews, then send only uncertain cases (compound score near 0) to an LLM for final classification.
-
-            **Q: Where does this data come from?**
-            A: Real Amazon product reviews from the SetFit/amazon_reviews_multi_en dataset on Hugging Face, containing thousands of verified customer reviews.
+            - Show how quickly you can scan 30 reviews visually
+            - Compare the integrated approach to clicking through individual reviews
+            - Demonstrate the accordion pattern for progressive disclosure
+            - Highlight the performance metrics showing sub-millisecond processing
             """
         )
