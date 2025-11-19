@@ -155,7 +155,7 @@ def render_probability_table(top_choices: List[Dict[str, Any]], selected_token: 
         return [""] * len(row)
 
     styled = dataframe.style.apply(_highlight_selected, axis=1)
-    st.dataframe(styled, use_container_width=True)
+    st.dataframe(styled, width='stretch')
 
 
 def plot_distribution(top_choices: List[Dict[str, Any]]) -> None:
@@ -179,7 +179,7 @@ def plot_distribution(top_choices: List[Dict[str, Any]]) -> None:
         margin=dict(t=30, b=20, l=40, r=20),
         height=250,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 
 def request_next_token_distribution(context_text: str, temperature: float, system_prompt: str = DEFAULT_SYSTEM_PROMPT, top_k: int = 8) -> Dict[str, Any]:
@@ -669,7 +669,7 @@ def transformer_page() -> None:
 
     if is_setup:
         # Only show "Start Generating" button
-        if st.button("🚀 Generate First Token", use_container_width=True, type="primary", key="start_gen"):
+        if st.button("🚀 Generate First Token", width='stretch', type="primary", key="start_gen"):
             # Generate the first token
             try:
                 prompt = st.session_state["prompt_source"] if st.session_state["prompt_source"].strip() else DEFAULT_PROMPT
@@ -719,14 +719,14 @@ def transformer_page() -> None:
         at_latest = viewing_index == len(token_history) - 1
 
         with nav_cols[0]:
-            if st.button("⬅️ Previous Token", use_container_width=True, disabled=not can_prev, key="nav_prev"):
+            if st.button("⬅️ Previous Token", width='stretch', disabled=not can_prev, key="nav_prev"):
                 st.session_state["viewing_index"] = viewing_index - 1
                 st.rerun()
 
         with nav_cols[1]:
             if at_latest:
                 # Generate next token
-                if st.button("➡️ Generate Next Token", use_container_width=True, type="primary", key="gen_next"):
+                if st.button("➡️ Generate Next Token", width='stretch', type="primary", key="gen_next"):
                     try:
                         temperature = st.session_state["temperature"]
                         context = st.session_state["current_context"]
@@ -766,13 +766,13 @@ def transformer_page() -> None:
                         st.error(f"API error: {exc}")
             else:
                 # Navigate forward in history
-                if st.button("Next Token ➡️", use_container_width=True, type="primary", key="nav_next"):
+                if st.button("Next Token ➡️", width='stretch', type="primary", key="nav_next"):
                     st.session_state["viewing_index"] = viewing_index + 1
                     st.rerun()
 
         # Add reset button
         st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
-        if st.button("🔄 Reset & Start New Story", use_container_width=True, key="reset"):
+        if st.button("🔄 Reset & Start New Story", width='stretch', key="reset"):
             st.session_state["token_history"] = []
             st.session_state["current_context"] = ""
             st.session_state["viewing_index"] = 0

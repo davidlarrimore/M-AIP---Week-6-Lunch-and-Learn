@@ -149,13 +149,13 @@ def embeddings_page() -> None:
 
     with col_examples:
         st.markdown("### 🔍 Try Example Searches")
-        if st.button("🚗 Vehicle Pursuit", use_container_width=True):
+        if st.button("🚗 Vehicle Pursuit", width='stretch'):
             st.session_state["query_input"] = "Looking for incidents with a red truck fleeing the scene"
             st.rerun()
-        if st.button("🏪 Theft Cases", use_container_width=True):
+        if st.button("🏪 Theft Cases", width='stretch'):
             st.session_state["query_input"] = "Reports involving stolen property or theft"
             st.rerun()
-        if st.button("👊 Violent Incidents", use_container_width=True):
+        if st.button("👊 Violent Incidents", width='stretch'):
             st.session_state["query_input"] = "Physical violence or assault cases"
             st.rerun()
 
@@ -177,7 +177,7 @@ def embeddings_page() -> None:
         )
 
         # Search button below query in same column
-        if st.button("🔍 Search Database (Find Similar Reports)", use_container_width=True, type="primary"):
+        if st.button("🔍 Search Database (Find Similar Reports)", width='stretch', type="primary"):
             st.session_state["trigger_search"] = True
 
     if "embedding_results" not in st.session_state:
@@ -260,7 +260,7 @@ def embeddings_page() -> None:
             font=dict(size=13),
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
         # Results cards
         st.markdown("### 🏆 Top Matching Reports (Ranked by Similarity)")

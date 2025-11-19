@@ -159,7 +159,7 @@ def translation_page() -> None:
             if st.button(
                 f"Select {lang_data['language']}",
                 key=f"btn_{lang_key}",
-                use_container_width=True,
+                width='stretch',
                 type="primary" if is_selected else "secondary",
             ):
                 select_language(lang_key)
@@ -206,7 +206,7 @@ def translation_page() -> None:
         with col1:
             if st.button(
                 "⚽ Use Sports Context",
-                use_container_width=True,
+                width='stretch',
                 help="Context: This is about a professional soccer match",
             ):
                 st.session_state["english_context"] = selected_lang_data["context_sports"]
@@ -215,7 +215,7 @@ def translation_page() -> None:
         with col2:
             if st.button(
                 "💼 Use Business Context",
-                use_container_width=True,
+                width='stretch',
                 help="Context: This is about corporate executives and strategic decisions",
             ):
                 st.session_state["english_context"] = selected_lang_data["context_business"]
@@ -237,7 +237,7 @@ def translation_page() -> None:
         col_btn1, col_btn2 = st.columns([1, 1])
 
         with col_btn1:
-            if st.button("🌐 Translate", use_container_width=True, type="primary"):
+            if st.button("🌐 Translate", width='stretch', type="primary"):
                 if not st.session_state["english_context"].strip():
                     st.warning("Please provide context first!")
                 else:
@@ -267,7 +267,7 @@ def translation_page() -> None:
                         st.session_state["show_results"] = True
 
         with col_btn2:
-            if st.button("🔄 Clear Results", use_container_width=True):
+            if st.button("🔄 Clear Results", width='stretch'):
                 st.session_state["translated_context"] = ""
                 st.session_state["translation_without_context"] = ""
                 st.session_state["translation_with_context"] = ""

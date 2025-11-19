@@ -192,6 +192,17 @@ def train_ml_sentiment_model(texts: Tuple[str, ...], labels: Tuple[int, ...], us
     texts_list = list(texts)
     labels_list = list(labels)
 
+    # Validate we have both classes
+    from collections import Counter
+    label_counts = Counter(labels_list)
+    print(f"Training samples - Positive (1): {label_counts.get(1, 0)}, Negative (0): {label_counts.get(0, 0)}")
+
+    if len(label_counts) < 2:
+        raise ValueError(f"Need both positive and negative samples to train. Got only: {label_counts}")
+
+    if label_counts.get(0, 0) < 2 or label_counts.get(1, 0) < 2:
+        raise ValueError(f"Need at least 2 samples of each class. Got: {label_counts}")
+
     # Preprocess idioms in training data if requested
     if use_idiom_preprocessing:
         texts_list = [preprocess_idioms(text) for text in texts_list]
@@ -205,12 +216,23 @@ def train_ml_sentiment_model(texts: Tuple[str, ...], labels: Tuple[int, ...], us
     vectorizer = TfidfVectorizer(
         ngram_range=(1, 2),
         stop_words="english",
-        max_features=20000
+        max_features=20000,
+        min_df=1
     )
     X = vectorizer.fit_transform(texts_list)
 
-    clf = LogisticRegression(max_iter=1000, random_state=42)
+    clf = LogisticRegression(
+        max_iter=1000,
+        random_state=42,
+        class_weight='balanced',
+        C=1.0  # Regularization parameter
+    )
     clf.fit(X, labels_list)
+
+    # Verify the model can predict both classes
+    train_preds = clf.predict(X)
+    train_pred_counts = Counter(train_preds)
+    print(f"Training predictions - Positive (1): {train_pred_counts.get(1, 0)}, Negative (0): {train_pred_counts.get(0, 0)}")
 
     return vectorizer, clf
 
@@ -246,9 +268,15 @@ def analyze_sentiment_ml(review_text: str, vectorizer: TfidfVectorizer, clf: Log
     pred = clf.predict(X)[0]
 
     if hasattr(clf, "predict_proba"):
-        confidence = float(clf.predict_proba(X)[0].max())
+        proba = clf.predict_proba(X)[0]
+        confidence = float(proba.max())
+        # Get probability for the predicted class
+        pos_prob = float(proba[1]) if len(proba) > 1 else 0.5
+        neg_prob = float(proba[0]) if len(proba) > 0 else 0.5
     else:
         confidence = 1.0
+        pos_prob = 1.0 if pred == 1 else 0.0
+        neg_prob = 1.0 if pred == 0 else 0.0
 
     sentiment = "positive" if pred == 1 else "negative"
     elapsed_ms = (time.time() - start_time) * 1000
@@ -258,14 +286,17 @@ def analyze_sentiment_ml(review_text: str, vectorizer: TfidfVectorizer, clf: Log
     if idioms_detected:
         idiom_note = f" [Context-aware: detected {', '.join(set(idioms_detected))}]"
 
-    reasoning = f"ML model prediction based on TF-IDF features. Confidence: {confidence:.1%}{idiom_note}"
+    reasoning = f"ML model prediction based on TF-IDF features. Confidence: {confidence:.1%} (pos: {pos_prob:.1%}, neg: {neg_prob:.1%}){idiom_note}"
+
+    # Create compound score that represents the confidence and direction
+    compound = (pos_prob - neg_prob)  # Range: -1 to 1
 
     return {
         "sentiment": sentiment,
         "confidence": confidence,
         "reasoning": reasoning,
         "key_phrases": [],  # ML model doesn't extract phrases
-        "scores": {"compound": confidence if sentiment == "positive" else -confidence},
+        "scores": {"compound": compound, "pos": pos_prob, "neg": neg_prob, "neu": 0.0},
         "processing_time_ms": elapsed_ms,
         "elapsed_ms": elapsed_ms,
         "idioms_detected": bool(idioms_detected)
@@ -1229,10 +1260,24 @@ def sentiment_analysis_page() -> None:
                 with st.spinner("Training ML sentiment model on dataset..."):
                     texts, labels = build_sentiment_labels_from_df(reviews)
                     if len(texts) > 0:
-                        # Convert to tuples for caching
-                        vectorizer, clf = train_ml_sentiment_model(tuple(texts), tuple(labels))
-                        st.session_state["ml_model"] = (vectorizer, clf)
-                        st.success(f"✅ ML model trained on {len(texts)} reviews!")
+                        try:
+                            # Convert to tuples for caching
+                            vectorizer, clf = train_ml_sentiment_model(tuple(texts), tuple(labels))
+                            st.session_state["ml_model"] = (vectorizer, clf)
+
+                            # Show training data distribution
+                            from collections import Counter
+                            label_counts = Counter(labels)
+                            pos_count = label_counts.get(1, 0)
+                            neg_count = label_counts.get(0, 0)
+                            st.success(f"✅ ML model trained on {len(texts)} reviews! (Positive: {pos_count}, Negative: {neg_count})")
+
+                            if pos_count < 3 or neg_count < 3:
+                                st.warning(f"⚠️ Limited training data detected. For best results, try loading more reviews or use VADER model instead.")
+                        except Exception as e:
+                            st.error(f"Failed to train ML model: {e}")
+                            st.info("Falling back to VADER model. Try loading more reviews with diverse ratings.")
+                            # Don't set the model, will fall back to VADER below
             else:
                 vectorizer, clf = st.session_state["ml_model"]
 
@@ -1273,34 +1318,108 @@ def sentiment_analysis_page() -> None:
 
         time_saved_ms = total_llm_time_ms - nlp_total_time_ms
         cost_saved = total_llm_cost - total_nlp_cost
+        speedup_factor = total_llm_time_ms / nlp_total_time_ms if nlp_total_time_ms > 0 else 0
+
+        # Convert times to appropriate units
+        nlp_total_time_display = f"{nlp_total_time_ms:.0f} ms" if nlp_total_time_ms < 1000 else f"{nlp_total_time_ms/1000:.2f} sec"
+        llm_total_time_display = f"{total_llm_time_ms/1000:.1f} sec" if total_llm_time_ms < 60000 else f"{total_llm_time_ms/60000:.1f} min"
+        time_saved_display = f"{time_saved_ms/1000:.1f} sec" if time_saved_ms < 60000 else f"{time_saved_ms/60000:.1f} min"
 
         st.markdown(
             f"""
             <div style='background: linear-gradient(135deg, #ecfccb 0%, #d9f99d 100%);
             padding: 1.2rem; border-radius: 12px; border-left: 4px solid #65a30d; margin: 1rem 0;'>
                 <div style='display: flex; flex-wrap: wrap; gap: 1.5rem;'>
-                    <div style='flex: 1; min-width: 220px;'>
-                        <div style='font-size: 0.85rem; color: #4d7c0f;'>Average per review</div>
-                        <div style='font-size: 1.6rem; font-weight: 700; color: #1a2e05;'>{avg_nlp_time_ms:.2f} ms</div>
-                        <div style='color: #4d7c0f;'>Traditional NLP processing time</div>
+                    <div style='flex: 1; min-width: 200px;'>
+                        <div style='font-size: 0.85rem; color: #4d7c0f;'>Traditional NLP Total Time</div>
+                        <div style='font-size: 1.6rem; font-weight: 700; color: #1a2e05;'>{nlp_total_time_display}</div>
+                        <div style='color: #4d7c0f;'>For {total_reviews} reviews</div>
                     </div>
-                    <div style='flex: 1; min-width: 220px;'>
-                        <div style='font-size: 0.85rem; color: #4d7c0f;'>Estimated LLM time</div>
-                        <div style='font-size: 1.6rem; font-weight: 700; color: #1a2e05;'>{llm_time_per_review_ms / 1000:.2f} sec</div>
-                        <div style='color: #4d7c0f;'>Per-review GPT-style API latency</div>
+                    <div style='flex: 1; min-width: 200px;'>
+                        <div style='font-size: 0.85rem; color: #4d7c0f;'>Estimated LLM Total Time</div>
+                        <div style='font-size: 1.6rem; font-weight: 700; color: #1a2e05;'>{llm_total_time_display}</div>
+                        <div style='color: #4d7c0f;'>Same {total_reviews} reviews</div>
                     </div>
-                    <div style='flex: 1; min-width: 220px;'>
-                        <div style='font-size: 0.85rem; color: #4d7c0f;'>Estimated cost avoided</div>
+                    <div style='flex: 1; min-width: 200px;'>
+                        <div style='font-size: 0.85rem; color: #4d7c0f;'>Time Saved</div>
+                        <div style='font-size: 1.6rem; font-weight: 700; color: #1a2e05;'>{time_saved_display}</div>
+                        <div style='color: #4d7c0f;'>{speedup_factor:.0f}x faster!</div>
+                    </div>
+                    <div style='flex: 1; min-width: 200px;'>
+                        <div style='font-size: 0.85rem; color: #4d7c0f;'>Cost Saved</div>
                         <div style='font-size: 1.6rem; font-weight: 700; color: #1a2e05;'>${cost_saved:,.2f}</div>
                         <div style='color: #4d7c0f;'>vs. ${total_llm_cost:,.2f} in LLM fees</div>
                     </div>
                 </div>
                 <div style='margin-top: 0.8rem; font-size: 0.95rem; color: #365314;'>
-                    ✅ Saved ~{time_saved_ms/1000:.2f} seconds of processing time for {total_reviews} reviews by running VADER + keyword models locally.
+                    ✅ <strong>At scale:</strong> Processing 1 million reviews would take ~{(nlp_total_time_ms / total_reviews * 1000000) / 3600000:.1f} hours with NLP vs. ~{(llm_time_per_review_ms * 1000000) / 3600000:.0f} hours with LLMs, saving ${(llm_cost_per_review * 1000000):,.0f} in API costs.
                 </div>
                 <div style='margin-top: 0.3rem; font-size: 0.8rem; color: #4d7c0f;'>
-                    Assumptions: VADER average = {avg_nlp_time_ms:.2f}ms, LLM average = {llm_time_per_review_ms/1000:.1f}s, LLM cost = ${llm_cost_per_review:.02f}/review.
+                    Assumptions: NLP average = {avg_nlp_time_ms:.2f}ms/review, LLM average = {llm_time_per_review_ms/1000:.1f}s/review, LLM cost = ${llm_cost_per_review:.02f}/review.
                 </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # Scaling visualization
+        st.markdown("#### 📈 How Traditional NLP Costs Scale vs. LLMs")
+
+        # Generate data for scaling chart
+        review_counts = [10, 50, 100, 500, 1000, 5000, 10000]
+        nlp_costs = [count * nlp_cost_per_review for count in review_counts]
+        llm_costs = [count * llm_cost_per_review for count in review_counts]
+
+        # Cost scaling chart (full width)
+        cost_scaling_df = pd.DataFrame({
+            'Review Count': review_counts + review_counts,
+            'Cost ($)': nlp_costs + llm_costs,
+            'Method': ['Traditional NLP'] * len(review_counts) + ['LLM API'] * len(review_counts)
+        })
+
+        fig_cost = px.line(
+            cost_scaling_df,
+            x='Review Count',
+            y='Cost ($)',
+            color='Method',
+            markers=True,
+            title='Cost Scaling Comparison: Traditional NLP vs. LLM API',
+            color_discrete_map={'Traditional NLP': '#10b981', 'LLM API': '#ef4444'}
+        )
+        fig_cost.update_layout(
+            height=400,
+            margin=dict(t=40, b=40, l=40, r=40),
+            hovermode='x unified',
+            xaxis=dict(
+                title='Number of Reviews',
+                tickmode='array',
+                tickvals=review_counts,
+                ticktext=[f'{x:,}' for x in review_counts]
+            ),
+            yaxis=dict(
+                title='Cost ($)'
+            )
+        )
+        # Add annotation for current dataset
+        fig_cost.add_vline(
+            x=total_reviews,
+            line_dash="dash",
+            line_color="gray",
+            annotation_text=f"Your data ({total_reviews} reviews)",
+            annotation_position="top"
+        )
+        st.plotly_chart(fig_cost, use_container_width=True)
+
+        # Summary insights
+        st.markdown(
+            f"""
+            <div style='background: #f0fdf4; padding: 1rem; border-radius: 8px; border-left: 4px solid #10b981; margin: 1rem 0;'>
+                <strong>📊 Key Insights at Scale:</strong>
+                <ul style='margin: 0.5rem 0; color: #065f46;'>
+                    <li><strong>10,000 reviews:</strong> NLP = {(avg_nlp_time_ms * 10000) / 1000:.1f}s (${nlp_cost_per_review * 10000:.2f}), LLM = {(llm_time_per_review_ms * 10000) / 3600000:.1f} hours (${llm_cost_per_review * 10000:,.0f})</li>
+                    <li><strong>100,000 reviews:</strong> NLP = {(avg_nlp_time_ms * 100000) / 60000:.1f} min (${nlp_cost_per_review * 100000:.2f}), LLM = {(llm_time_per_review_ms * 100000) / 3600000:.1f} hours (${llm_cost_per_review * 100000:,.0f})</li>
+                    <li><strong>1,000,000 reviews:</strong> NLP = {(avg_nlp_time_ms * 1000000) / 3600000:.1f} hours (${nlp_cost_per_review * 1000000:.2f}), LLM = {(llm_time_per_review_ms * 1000000) / 3600000:.0f} hours (${llm_cost_per_review * 1000000:,.0f})</li>
+                </ul>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1707,69 +1826,5 @@ def sentiment_analysis_page() -> None:
             - **Clarity:** Often produces more coherent topics than LDA
             - **Interpretability:** Non-negative weights are easier to understand
             - **Flexibility:** Works well with TF-IDF features
-            """
-        )
-
-    # Presentation tips
-    with st.expander("🎯 Presentation Tips for Lunch & Learn"):
-        st.markdown(
-            """
-            ### Suggested Flow:
-
-            1. **Start with the value prop** - Emphasize the speed/cost advantage in the header
-               - "This runs 100-1000x faster than GPT-4"
-               - "Processes reviews for FREE on your laptop"
-
-            2. **Load the data** - Click "Load Reviews from Dataset"
-               - Explain this is real data from Hugging Face
-               - Show 30 reviews load instantly
-
-            3. **Show the cost savings dashboard**
-               - Point out instant processing time (single-digit ms)
-               - Highlight the avoided LLM latency and per-review API cost
-               - Reinforce the value for high-volume workloads
-
-            4. **Scroll through reviews** - Show integrated analysis
-               - Point out color-coded sentiment (green/yellow/red borders)
-               - Show topic chips and aspect badges
-               - Demonstrate the visual overview
-
-            5. **Expand a positive review** - Click expander
-               - Show detailed VADER scores
-               - Explain compound score and confidence
-               - Show aspect-based sentiment breakdown
-
-            6. **Expand a negative review** - Show contrast
-               - Point out negative aspects identified
-               - Show how VADER caught the negativity
-
-            7. **Expand a mixed review** - Show nuance
-               - Demonstrate aspect-based analysis catching both positives and negatives
-               - E.g., "Good quality" but "Poor shipping"
-
-            8. **Scroll to dashboards** - Show aggregate insights
-               - Rating distribution
-               - **NEW: Topic Sentiment Analysis** - The highlight!
-               - LDA/NMF topics
-               - TF-IDF keywords
-
-            ### Key Talking Points:
-
-            - **"Instant visual feedback"** - Color-coded borders show sentiment at a glance
-            - **"Detailed on demand"** - Expand for full analysis
-            - **"Aspect-based insights"** - Not just positive/negative, but what specifically
-            - **"Topic Sentiment Analysis"** (NEW!) - See which aspects customers love/hate at scale
-              - "This answers 'Is Performance viewed positively or negatively?' across ALL reviews"
-              - "Actionable insights: Quality is 85% positive → use in marketing; Price is 60% negative → needs strategy review"
-            - **"Production-ready performance"** - Real-time analysis suitable for user-facing apps
-            - **"Cost-effective scale"** - Process millions for $0
-            - **"Privacy-friendly"** - All analysis happens locally
-
-            ### Interactive Elements:
-
-            - Show how quickly you can scan 30 reviews visually
-            - Compare the integrated approach to clicking through individual reviews
-            - Demonstrate the accordion pattern for progressive disclosure
-            - Highlight the performance metrics showing sub-millisecond processing
             """
         )
