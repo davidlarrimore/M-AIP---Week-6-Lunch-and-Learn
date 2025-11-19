@@ -20,4 +20,4 @@ set -o allexport
 source .env
 set +o allexport
 
-streamlit run demo_app/Home.py
+streamlit run app/1_Home.py

@@ -1,10 +1,50 @@
+# Python
 __pycache__/
-.env
-.env.local
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
 .venv/
 venv/
-build/
-dist/
-*.egg-info/
-*.pyc
+env/
+ENV/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
 local.cfg
+
+# Streamlit
+.streamlit/secrets.toml
+.streamlit/credentials.toml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Logs
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+Thumbs.db

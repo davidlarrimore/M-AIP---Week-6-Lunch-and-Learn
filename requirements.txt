@@ -12,3 +12,4 @@ nltk
 vaderSentiment
 gensim
 wordcloud
+rake-nltk

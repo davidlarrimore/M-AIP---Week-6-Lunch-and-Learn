@@ -11,6 +11,7 @@ from openai import OpenAI
 from tiktoken import Encoding
 
 
+# Load .env for local development (ignored when deployed to Streamlit Cloud)
 load_dotenv()
 
 # Environment keys and default model values used throughout the demo.
@@ -23,10 +24,22 @@ DEFAULT_GENERATION_MODEL = "gpt-4o-mini"
 
 
 def _env_value(key: str, default: str = "", required: bool = False) -> str:
-    """Fetch an environment variable with optional defaulting/validation."""
-    value = os.environ.get(key, "").strip()
+    """Fetch a secret/environment variable with optional defaulting/validation.
+
+    Prioritizes st.secrets (for Streamlit Cloud), falls back to os.environ (for local dev).
+    """
+    value = ""
+
+    # Try st.secrets first (for Streamlit Cloud deployment)
+    try:
+        value = str(st.secrets.get(key, "")).strip()
+    except (FileNotFoundError, KeyError):
+        # Fall back to environment variables (for local development)
+        value = os.environ.get(key, "").strip()
+
     if required and not value:
-        raise RuntimeError(f"{key} must be set via .env or the environment.")
+        raise RuntimeError(f"{key} must be set via st.secrets or .env file.")
+
     return value or default
 
 

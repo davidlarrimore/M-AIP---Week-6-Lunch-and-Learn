@@ -2,20 +2,38 @@
 
 import streamlit as st
 
-from Tokenization import tokenization_page
-from Embeddings import embeddings_page
-from Translation import translation_page
-from TransformerDemo import transformer_page
-from SentimentAnalysis import sentiment_analysis_page
+import importlib.util
+import sys
+
+# Dynamically import from renamed modules
+def import_from_file(module_name, file_path):
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+# Import the page functions from renamed files
+tok_module = import_from_file("4_Tokenization", "/Users/davidlarrimore/Documents/week-6-demo/app/4_Tokenization.py")
+emb_module = import_from_file("5_Embeddings", "/Users/davidlarrimore/Documents/week-6-demo/app/5_Embeddings.py")
+trans_module = import_from_file("3_Translation", "/Users/davidlarrimore/Documents/week-6-demo/app/3_Translation.py")
+tf_module = import_from_file("6_TransformerDemo", "/Users/davidlarrimore/Documents/week-6-demo/app/6_TransformerDemo.py")
+sent_module = import_from_file("2_SentimentAnalysis", "/Users/davidlarrimore/Documents/week-6-demo/app/2_SentimentAnalysis.py")
+
+tokenization_page = tok_module.tokenization_page
+embeddings_page = emb_module.embeddings_page
+translation_page = trans_module.translation_page
+transformer_page = tf_module.transformer_page
+sentiment_analysis_page = sent_module.sentiment_analysis_page
 
 # Primary navigation map used by the sidebar radio options.
 PAGE_NAVIGATION = {
     "🏠 Home": ("Home / Overview", "🏠"),
+    "💭 Sentiment Analysis": ("Sentiment & Topic Modeling", "💭"),
+    "🌐 Translation": ("Translation Sandbox", "🌐"),
     "🔤 Tokenization": ("Tokenization Playground", "🔤"),
     "🎯 Embeddings": ("Embedding Similarity Explorer", "🎯"),
-    "🌐 Translation": ("Translation Sandbox", "🌐"),
     "⚡ Transformer Lab": ("Transformer Insight Studio", "⚡"),
-    "💭 Sentiment Analysis": ("Sentiment & Topic Modeling", "💭"),
 }
 
 
@@ -341,16 +359,16 @@ def main() -> None:
     # Route to pages
     if selection == "🏠 Home":
         show_home()
+    elif selection == "💭 Sentiment Analysis":
+        sentiment_analysis_page()
+    elif selection == "🌐 Translation":
+        translation_page()
     elif selection == "🔤 Tokenization":
         tokenization_page()
     elif selection == "🎯 Embeddings":
         embeddings_page()
-    elif selection == "🌐 Translation":
-        translation_page()
     elif selection == "⚡ Transformer Lab":
         transformer_page()
-    elif selection == "💭 Sentiment Analysis":
-        sentiment_analysis_page()
 
 
 if __name__ == "__main__":
