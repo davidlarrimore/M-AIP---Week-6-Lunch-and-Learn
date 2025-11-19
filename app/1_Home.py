@@ -4,6 +4,7 @@ import streamlit as st
 
 import importlib.util
 import sys
+from pathlib import Path
 
 # Dynamically import from renamed modules
 def import_from_file(module_name, file_path):
@@ -13,12 +14,15 @@ def import_from_file(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
-# Import the page functions from renamed files
-tok_module = import_from_file("4_Tokenization", "/Users/davidlarrimore/Documents/week-6-demo/app/4_Tokenization.py")
-emb_module = import_from_file("5_Embeddings", "/Users/davidlarrimore/Documents/week-6-demo/app/5_Embeddings.py")
-trans_module = import_from_file("3_Translation", "/Users/davidlarrimore/Documents/week-6-demo/app/3_Translation.py")
-tf_module = import_from_file("6_TransformerDemo", "/Users/davidlarrimore/Documents/week-6-demo/app/6_TransformerDemo.py")
-sent_module = import_from_file("2_SentimentAnalysis", "/Users/davidlarrimore/Documents/week-6-demo/app/2_SentimentAnalysis.py")
+# Get the directory where this file is located
+current_dir = Path(__file__).parent
+
+# Import the page functions from renamed files using relative paths
+tok_module = import_from_file("4_Tokenization", current_dir / "4_Tokenization.py")
+emb_module = import_from_file("5_Embeddings", current_dir / "5_Embeddings.py")
+trans_module = import_from_file("3_Translation", current_dir / "3_Translation.py")
+tf_module = import_from_file("6_TransformerDemo", current_dir / "6_TransformerDemo.py")
+sent_module = import_from_file("2_SentimentAnalysis", current_dir / "2_SentimentAnalysis.py")
 
 tokenization_page = tok_module.tokenization_page
 embeddings_page = emb_module.embeddings_page
