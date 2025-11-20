@@ -1,4 +1,4 @@
-"""Homepage and navigation shell for the Streamlit NLP demo."""
+"""Homepage and navigation shell for the NLP Playground."""
 
 import streamlit as st
 
@@ -37,7 +37,7 @@ PAGE_NAVIGATION = {
     "🌐 Translation": ("Translation Sandbox", "🌐"),
     "🔤 Tokenization": ("Tokenization Playground", "🔤"),
     "🎯 Embeddings": ("Embedding Similarity Explorer", "🎯"),
-    "⚡ Transformer Lab": ("Transformer Insight Studio", "⚡"),
+    "⚡ Transformers": ("Transformer Insight Studio", "⚡"),
 }
 
 
@@ -226,119 +226,168 @@ def show_home() -> None:
     st.markdown(
         """
         <div class="custom-card">
-            <h1>🤖 NLP & Machine Translation Demo</h1>
-            <p>Explore how GPT-style models tokenize, embed, and translate language through interactive demonstrations</p>
+            <h1>🎮 NLP Playground</h1>
+            <p>A hands-on learning environment for exploring how modern AI systems understand and process human language</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown("### ✨ Interactive Features")
-
-    # Feature cards in columns
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown(
-            """
-            <div class="feature-card">
-                <div class="feature-icon">🔤</div>
-                <div class="feature-title">Tokenization Playground</div>
-                <div class="feature-desc">Watch text transform into byte-pair tokens in real-time</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            """
-            <div class="feature-card">
-                <div class="feature-icon">🌐</div>
-                <div class="feature-title">Translation Sandbox</div>
-                <div class="feature-desc">Compare translations with and without context</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with col2:
-        st.markdown(
-            """
-            <div class="feature-card">
-                <div class="feature-icon">🎯</div>
-                <div class="feature-title">Embedding Explorer</div>
-                <div class="feature-desc">Visualize semantic similarity through vector comparisons</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            """
-            <div class="feature-card">
-                <div class="feature-icon">⚡</div>
-                <div class="feature-title">Transformer Lab</div>
-                <div class="feature-desc">Inspect attention patterns and prompt-driven reasoning</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            """
-            <div class="feature-card">
-                <div class="feature-icon">💭</div>
-                <div class="feature-title">Sentiment Analysis</div>
-                <div class="feature-desc">Analyze customer sentiment and extract topics from reviews</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    # Welcome and orientation section
+    st.markdown("## 👋 Welcome Students!")
+    st.markdown("""
+    This interactive playground lets you explore the fundamental concepts behind natural language processing (NLP)
+    and large language models. Each demonstration is designed to help you understand **how** AI systems work,
+    not just **what** they do.
+    """)
 
     st.divider()
 
-    # Two-column layout for objectives and setup
+    # What you'll learn section
+    st.markdown("## 📚 What You'll Learn")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("""
+        #### Core NLP Concepts
+        - **Text Tokenization**: How AI breaks down language into processable units
+        - **Vector Embeddings**: How meaning is represented mathematically
+        - **Semantic Similarity**: How AI measures the closeness of ideas
+        """)
+
+    with col2:
+        st.markdown("""
+        #### Real-World Applications
+        - **Machine Translation**: Context-aware language translation
+        - **Sentiment Analysis**: Understanding emotion and opinion in text
+        - **Attention Mechanisms**: How transformers focus on relevant information
+        """)
+
+    st.divider()
+
+    # How to navigate section
+    st.markdown("## 🧭 How to Navigate")
+
+    st.info("""
+    **Use the sidebar menu on the left** to explore different demonstrations. Each page is self-contained
+    and interactive—you can experiment with your own text and see results in real-time.
+
+    💡 **Tip**: Start with **Tokenization** to understand the basics, then progress through the other topics in order.
+    """)
+
+    st.divider()
+
+    # Interactive learning modules
+    st.markdown("## 🎯 Learning Modules")
+
+    # Feature cards in columns with clickable navigation
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### 🔤 Tokenization Playground")
+        st.markdown("""
+        **What you'll discover**: How AI models break text into tokens (the basic units of processing)
+
+        **Learning objectives**:
+        - Understand byte-pair encoding (BPE)
+        - See how different words use different numbers of tokens
+        - Learn why token count matters for AI systems
+        """)
+        if st.button("Start Tokenization Lab →", use_container_width=True, key="tokenization"):
+            st.session_state.page = "🔤 Tokenization"
+            st.rerun()
+        st.markdown("")
+
+        st.markdown("### 🌐 Translation Sandbox")
+        st.markdown("""
+        **What you'll discover**: How context improves machine translation accuracy
+
+        **Learning objectives**:
+        - Compare translations with and without context
+        - Understand ambiguity in language
+        - Explore multi-language support
+        """)
+        if st.button("Start Translation Lab →", use_container_width=True, key="translation"):
+            st.session_state.page = "🌐 Translation"
+            st.rerun()
+        st.markdown("")
+
+        st.markdown("### ⚡ Transformers")
+        st.markdown("""
+        **What you'll discover**: How attention mechanisms help AI understand context
+
+        **Learning objectives**:
+        - Visualize how transformers process text
+        - Understand attention patterns
+        - Explore prompt engineering effects
+        """)
+        if st.button("Start Transformer Lab →", use_container_width=True, key="transformer"):
+            st.session_state.page = "⚡ Transformers"
+            st.rerun()
+
+    with col2:
+        st.markdown("### 🎯 Embedding Explorer")
+        st.markdown("""
+        **What you'll discover**: How AI represents meaning as high-dimensional vectors
+
+        **Learning objectives**:
+        - Visualize semantic similarity between texts
+        - Understand cosine similarity calculations
+        - See how embeddings capture meaning
+        """)
+        if st.button("Start Embedding Lab →", use_container_width=True, key="embeddings"):
+            st.session_state.page = "🎯 Embeddings"
+            st.rerun()
+        st.markdown("")
+
+        st.markdown("### 💭 Sentiment Analysis")
+        st.markdown("""
+        **What you'll discover**: How traditional NLP techniques analyze emotion and extract topics
+
+        **Learning objectives**:
+        - Understand VADER sentiment scoring
+        - Explore topic modeling with LDA and NMF
+        - Analyze real customer reviews
+        """)
+        if st.button("Start Sentiment Lab →", use_container_width=True, key="sentiment"):
+            st.session_state.page = "💭 Sentiment Analysis"
+            st.rerun()
+
+    st.divider()
+
+    # Getting started tips
+    st.markdown("## 🚀 Getting Started Tips")
+
     col_left, col_right = st.columns([1, 1])
 
     with col_left:
-        st.markdown(
-            """
-            <div class="info-box">
-                <h3>🎯 Presenter Objectives</h3>
-                <ul style="line-height: 1.8;">
-                    <li>Maintain a friendly, non-technical interface</li>
-                    <li>Use clear controls showing each pipeline step</li>
-                    <li>Provide concise, deterministic responses</li>
-                </ul>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        st.markdown("""
+        #### 💡 Best Learning Approach
+        1. **Start with Tokenization** to understand the basics
+        2. **Move to Embeddings** to see how meaning is captured
+        3. **Try Translation** to see context in action
+        4. **Explore Sentiment Analysis** for practical applications
+        5. **Finish with Transformers** to see the full picture
+        """)
 
     with col_right:
-        st.markdown(
-            """
-            <div class="info-box">
-                <h3>🚀 Quick Start Guide</h3>
-                <ol style="line-height: 1.8;">
-                    <li>Install packages: <code>streamlit openai numpy tiktoken plotly</code></li>
-                    <li>Set your API key in <code>.env</code> file</li>
-                    <li>Run: <code>streamlit run Home.py</code></li>
-                    <li>Navigate using the sidebar</li>
-                </ol>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        st.markdown("""
+        #### 🎮 Interactive Features
+        - **Experiment freely**: Try your own text in each demo
+        - **Adjust parameters**: Use sliders and controls to see how results change
+        - **Read explanations**: Each page includes tooltips and descriptions
+        - **Observe patterns**: Look for trends in how the AI responds
+        """)
 
-    st.success("✅ Once the API key is configured, all pages will show real-time AI responses")
+    st.success("✅ All demonstrations run in real-time. Your input is processed immediately, so feel free to experiment!")
 
 
 def main() -> None:
     """Route to the selected page."""
     st.set_page_config(
-        page_title="NLP & MT Demo",
-        page_icon="🤖",
+        page_title="NLP Playground",
+        page_icon="🎮",
         layout="wide",
         initial_sidebar_state="expanded",
     )
@@ -346,9 +395,33 @@ def main() -> None:
     # Apply custom CSS
     apply_custom_css()
 
-    # Sidebar navigation with icons
+    # Sidebar navigation with title and icons
+    st.sidebar.markdown(
+        """
+        <div style='text-align: center; padding: 1rem 0 0.5rem 0;'>
+            <h2 style='color: white; margin: 0; font-size: 1.5rem;'>🎮 NLP Playground</h2>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Initialize session state for page navigation
+    if "page" not in st.session_state:
+        st.session_state.page = "🏠 Home"
+
     nav_options = list(PAGE_NAVIGATION.keys())
-    selection = st.sidebar.radio("", nav_options, index=0, label_visibility="collapsed")
+    # Use session state to set the index of the radio button
+    try:
+        current_index = nav_options.index(st.session_state.page)
+    except ValueError:
+        current_index = 0
+        st.session_state.page = "🏠 Home"
+
+    selection = st.sidebar.radio("", nav_options, index=current_index, label_visibility="collapsed")
+
+    # Update session state when sidebar is used
+    if selection != st.session_state.page:
+        st.session_state.page = selection
 
     st.sidebar.markdown("---")
     st.sidebar.markdown(
@@ -360,18 +433,18 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    # Route to pages
-    if selection == "🏠 Home":
+    # Route to pages using session state
+    if st.session_state.page == "🏠 Home":
         show_home()
-    elif selection == "💭 Sentiment Analysis":
+    elif st.session_state.page == "💭 Sentiment Analysis":
         sentiment_analysis_page()
-    elif selection == "🌐 Translation":
+    elif st.session_state.page == "🌐 Translation":
         translation_page()
-    elif selection == "🔤 Tokenization":
+    elif st.session_state.page == "🔤 Tokenization":
         tokenization_page()
-    elif selection == "🎯 Embeddings":
+    elif st.session_state.page == "🎯 Embeddings":
         embeddings_page()
-    elif selection == "⚡ Transformer Lab":
+    elif st.session_state.page == "⚡ Transformers":
         transformer_page()
 
 

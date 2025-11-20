@@ -1,6 +1,6 @@
-# Multi-Page NLP & MT Streamlit Demo
+# NLP Playground
 
-This repository hosts a guided Streamlit app that walks a non-technical audience through tokenization, embeddings, translation, and transformer behavior using delegation to OpenAI-compatible APIs (including Bedrock endpoints).
+An interactive Streamlit application for exploring natural language processing concepts through hands-on demonstrations. This playground walks users through tokenization, embeddings, translation, sentiment analysis, and transformer behavior using OpenAI-compatible APIs (including Bedrock endpoints).
 
 ## Getting Started (Local Development)
 

@@ -83,8 +83,73 @@ def embeddings_page() -> None:
     if "query_input" not in st.session_state:
         st.session_state["query_input"] = "Looking for incidents with a red truck fleeing the scene"
 
-    # Database entries at the top (full width) - displayed as styled code block
-    st.markdown("### 📋 Vector Collection")
+    # Overview of the vector collection
+    st.markdown("### 📋 Vector Collection Overview")
+    st.markdown(
+        """
+        <div style='background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        padding: 1.2rem; border-radius: 10px; margin-bottom: 1.5rem; border-left: 4px solid #3b82f6;'>
+            <p style='margin: 0 0 0.8rem 0; color: #1e3a8a; font-size: 1.05rem;'>
+                <strong>What's in this collection?</strong> This vector database contains <strong>individual police report records</strong>
+                that have been converted from plain text into numerical vectors (embeddings). Each report captures details about
+                incidents like shoplifting, assaults, vehicle pursuits, and burglaries.
+            </p>
+            <p style='margin: 0 0 0.8rem 0; color: #1e40af;'>
+                <strong>Why vectors?</strong> Converting text to vectors allows us to perform semantic search - finding reports
+                by <em>meaning</em> rather than just keyword matching. Similar incidents will have vectors that are close together
+                in the high-dimensional vector space.
+            </p>
+            <p style='margin: 0; color: #1e40af; font-size: 0.95rem;'>
+                <strong>How it works:</strong> When you search, your query is also converted to a vector, and we calculate
+                cosine similarity between your query vector and each report vector to find the most relevant matches.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Show example of text vs vector
+    with st.expander("🔬 Example: Plain Text vs. Vector Representation", expanded=False):
+        st.markdown(
+            """
+            **Original Text (Human-Readable):**
+            ```
+            "Vehicle pursuit terminated after suspect fled"
+            ```
+
+            **Vector Representation (Machine-Readable):**
+
+            Below is what this sentence looks like when converted to a vector embedding. This is a simplified example
+            showing just the first 20 dimensions (real embeddings typically have 1536 dimensions or more):
+
+            ```python
+            [
+                -0.0234, 0.1456, -0.0891, 0.2103, -0.0567,
+                 0.0923, -0.1234, 0.0456, -0.0789, 0.1567,
+                -0.0345, 0.0678, -0.0912, 0.1234, -0.0456,
+                 0.0789, -0.1023, 0.0567, -0.0234, 0.0891
+                ... (continues for 1536+ dimensions)
+            ]
+            ```
+
+            **Key Points:**
+            - Each number captures a different aspect of the meaning
+            - Similar words/phrases have similar patterns in their vectors
+            - The model learned these representations from analyzing billions of text examples
+            - Two sentences about vehicle pursuits will have vectors pointing in similar directions
+            - Unrelated sentences (e.g., "shoplifting" vs "vehicle pursuit") will have vectors pointing in different directions
+
+            **Similarity Calculation:**
+            - Cosine similarity measures the angle between two vectors
+            - Score of **1.0** = identical direction (same meaning)
+            - Score of **0.0** = perpendicular (unrelated)
+            - Score of **-1.0** = opposite direction (contradictory, rare in practice)
+            """
+        )
+
+    # Database entries section
+    st.markdown("### 📄 Database Records (Plain Text View)")
+    st.markdown("_Below are the actual police reports in the vector collection - each has been converted to a vector for semantic search:_")
 
     # Build the display HTML for database entries
     import html
@@ -149,13 +214,13 @@ def embeddings_page() -> None:
 
     with col_examples:
         st.markdown("### 🔍 Try Example Searches")
-        if st.button("🚗 Vehicle Pursuit", width='stretch'):
+        if st.button("🚗 Vehicle Pursuit", use_container_width=True):
             st.session_state["query_input"] = "Looking for incidents with a red truck fleeing the scene"
             st.rerun()
-        if st.button("🏪 Theft Cases", width='stretch'):
+        if st.button("🏪 Theft Cases", use_container_width=True):
             st.session_state["query_input"] = "Reports involving stolen property or theft"
             st.rerun()
-        if st.button("👊 Violent Incidents", width='stretch'):
+        if st.button("👊 Violent Incidents", use_container_width=True):
             st.session_state["query_input"] = "Physical violence or assault cases"
             st.rerun()
 
@@ -177,7 +242,7 @@ def embeddings_page() -> None:
         )
 
         # Search button below query in same column
-        if st.button("🔍 Search Database (Find Similar Reports)", width='stretch', type="primary"):
+        if st.button("🔍 Search Database (Find Similar Reports)", use_container_width=True, type="primary"):
             st.session_state["trigger_search"] = True
 
     if "embedding_results" not in st.session_state:
@@ -260,7 +325,7 @@ def embeddings_page() -> None:
             font=dict(size=13),
         )
 
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
 
         # Results cards
         st.markdown("### 🏆 Top Matching Reports (Ranked by Similarity)")

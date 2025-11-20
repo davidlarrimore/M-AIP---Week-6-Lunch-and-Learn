@@ -770,15 +770,30 @@ def build_analysis_details_html(review: Dict[str, Any], sentiment_result: Dict[s
 
     processing_ms = topic_result.get("processing_time_ms", 0.0)
 
+    # Tooltip helper function
+    def tooltip(text):
+        return f'<span class="metric-tooltip">?<span class="tooltip-text">{text}</span></span>'
+
+    # Get scores for interpretation
+    compound = scores.get('compound', 0)
+    pos_score = scores.get('pos', 0)
+    neu_score = scores.get('neu', 0)
+    neg_score = scores.get('neg', 0)
+
     sentiment_details = "".join([
         "<div class='analysis-column'>",
         "<h4>Sentiment Details</h4>",
-        f"<p><strong>Confidence:</strong> {confidence_pct:.1f}%</p>",
-        f"<p><strong>Compound Score:</strong> {scores.get('compound', 0):.3f}</p>",
+        f"<p><strong>Confidence:</strong> {confidence_pct:.1f}%"
+        f"{tooltip('How certain the model is about its prediction. Higher is more confident. <strong>Good:</strong> >70%, <strong>Excellent:</strong> >85%')}</p>",
+        f"<p><strong>Compound Score:</strong> {compound:.3f}"
+        f"{tooltip('Overall sentiment score combining positive, negative, and neutral. Range: -1 (most negative) to +1 (most positive). <strong>Positive:</strong> ≥0.05, <strong>Negative:</strong> ≤-0.05, <strong>Neutral:</strong> between -0.05 and 0.05')}</p>",
         "<ul class='analysis-list'>",
-        f"<li>Positive: {scores.get('pos', 0):.2f}</li>",
-        f"<li>Neutral: {scores.get('neu', 0):.2f}</li>",
-        f"<li>Negative: {scores.get('neg', 0):.2f}</li>",
+        f"<li><strong>Positive:</strong> {pos_score:.2f}"
+        f"{tooltip('Proportion of text with positive sentiment. Range: 0-1. <strong>High positive:</strong> >0.5 indicates strong positive language')}</li>",
+        f"<li><strong>Neutral:</strong> {neu_score:.2f}"
+        f"{tooltip('Proportion of text that is neutral. Range: 0-1. <strong>High neutral:</strong> >0.5 indicates objective or factual language')}</li>",
+        f"<li><strong>Negative:</strong> {neg_score:.2f}"
+        f"{tooltip('Proportion of text with negative sentiment. Range: 0-1. <strong>High negative:</strong> >0.5 indicates strong negative language')}</li>",
         "</ul>",
         f"<div class='analysis-note'>{reasoning}</div>",
         key_phrases_block,
@@ -788,8 +803,11 @@ def build_analysis_details_html(review: Dict[str, Any], sentiment_result: Dict[s
     topic_details = "".join([
         "<div class='analysis-column'>",
         "<h4>Topic Analysis</h4>",
-        f"<p><strong>Processing Time:</strong> {processing_ms:.2f}ms</p>",
-        f"<div><strong>Aspect-Based Sentiment:</strong>{aspect_items}</div>",
+        f"<p><strong>Processing Time:</strong> {processing_ms:.2f}ms"
+        f"{tooltip('How long it took to extract topics and keywords from this review using traditional NLP (RAKE algorithm). <strong>Typical:</strong> 5-20ms, which is 100-1000x faster than LLM-based topic extraction')}</p>",
+        f"<div><strong>Aspect-Based Sentiment:</strong>"
+        f"{tooltip('Specific product aspects (quality, price, etc.) mentioned in this review and their associated sentiment. Helps identify what the reviewer liked or disliked.')}"
+        f"{aspect_items}</div>",
         topic_summary_block,
         "</div>",
     ])
@@ -1110,6 +1128,49 @@ def sentiment_analysis_page() -> None:
             font-size: 0.9rem;
             color: #1f2937;
         }
+        .metric-tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+            color: #6366f1;
+            font-weight: 600;
+            margin-left: 0.2rem;
+            font-size: 0.85rem;
+        }
+        .metric-tooltip .tooltip-text {
+            visibility: hidden;
+            width: 280px;
+            background-color: #1f2937;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 0.8rem;
+            position: absolute;
+            z-index: 1000;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -140px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.85rem;
+            font-weight: 400;
+            line-height: 1.4;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .metric-tooltip .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1f2937 transparent transparent transparent;
+        }
+        .metric-tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -1188,9 +1249,26 @@ def sentiment_analysis_page() -> None:
         st.session_state["sample_reviews"] = []
     if "expanded_reviews" not in st.session_state:
         st.session_state["expanded_reviews"] = set()
+    if "current_page" not in st.session_state:
+        st.session_state["current_page"] = 1
 
     # Model Selection Controls
     st.markdown("## ⚙️ Model Configuration")
+
+    # Model comparison overview
+    st.markdown(
+        """
+        <div style='background: #fef3c7; padding: 1rem; border-radius: 8px; border-left: 4px solid #f59e0b; margin-bottom: 1.5rem;'>
+            <strong>Choose Your Analysis Models</strong>
+            <p style='margin: 0.5rem 0; color: #78350f;'>
+                Select which traditional NLP models to use for sentiment analysis and topic extraction.
+                Each model has different strengths - experiment to see which works best for your data!
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     col1, col2 = st.columns(2)
 
     with col1:
@@ -1200,12 +1278,84 @@ def sentiment_analysis_page() -> None:
             help="Choose between rule-based VADER or a machine learning model trained on the dataset"
         )
 
+        # Add detailed comparison for sentiment models
+        if sentiment_model_choice == "VADER (lexicon-based)":
+            st.markdown(
+                """
+                <div style='background: #f0fdf4; padding: 0.8rem; border-radius: 6px; font-size: 0.9rem; margin-top: 0.5rem;'>
+                    <strong style='color: #15803d;'>📖 VADER (Rule-Based)</strong>
+                    <ul style='margin: 0.3rem 0; padding-left: 1.2rem; color: #166534;'>
+                        <li><strong>How it works:</strong> Uses a pre-built dictionary of words with sentiment scores</li>
+                        <li><strong>Speed:</strong> Extremely fast (1-5ms per review)</li>
+                        <li><strong>Training:</strong> None required - ready to use</li>
+                        <li><strong>Best for:</strong> General sentiment, social media text, quick analysis</li>
+                        <li><strong>Accuracy:</strong> ~80-85% on product reviews</li>
+                        <li><strong>Advantage:</strong> Works immediately, no training data needed, very interpretable</li>
+                    </ul>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                """
+                <div style='background: #eff6ff; padding: 0.8rem; border-radius: 6px; font-size: 0.9rem; margin-top: 0.5rem;'>
+                    <strong style='color: #1e40af;'>🤖 TF-IDF + Logistic Regression (ML)</strong>
+                    <ul style='margin: 0.3rem 0; padding-left: 1.2rem; color: #1e3a8a;'>
+                        <li><strong>How it works:</strong> Learns patterns from your data using machine learning</li>
+                        <li><strong>Speed:</strong> Fast (5-15ms per review after training)</li>
+                        <li><strong>Training:</strong> Trains live on your dataset (1-2 seconds for 2000 reviews)</li>
+                        <li><strong>Best for:</strong> Dataset-specific patterns, domain-specific language</li>
+                        <li><strong>Accuracy:</strong> ~85-90% on product reviews (often outperforms VADER)</li>
+                        <li><strong>Advantage:</strong> Adapts to your specific data, learns domain vocabulary</li>
+                    </ul>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
     with col2:
         topic_model_choice = st.radio(
             "**Topic Modeling Method** (Traditional NLP)",
             ["LDA (probabilistic)", "NMF (matrix factorization)"],
             help="Choose between probabilistic LDA or matrix factorization NMF"
         )
+
+        # Add detailed comparison for topic models
+        if topic_model_choice == "LDA (probabilistic)":
+            st.markdown(
+                """
+                <div style='background: #fdf4ff; padding: 0.8rem; border-radius: 6px; font-size: 0.9rem; margin-top: 0.5rem;'>
+                    <strong style='color: #86198f;'>🎲 LDA (Probabilistic Model)</strong>
+                    <ul style='margin: 0.3rem 0; padding-left: 1.2rem; color: #701a75;'>
+                        <li><strong>How it works:</strong> Uses probability distributions to find topics</li>
+                        <li><strong>Speed:</strong> Fast (100-500ms for entire dataset)</li>
+                        <li><strong>Approach:</strong> Documents are mixtures of topics, topics are mixtures of words</li>
+                        <li><strong>Best for:</strong> Discovering overlapping themes, interpretable results</li>
+                        <li><strong>Output:</strong> Each topic shows probability distribution over words</li>
+                        <li><strong>Advantage:</strong> Handles documents with multiple themes naturally</li>
+                    </ul>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                """
+                <div style='background: #fef2f2; padding: 0.8rem; border-radius: 6px; font-size: 0.9rem; margin-top: 0.5rem;'>
+                    <strong style='color: #991b1b;'>🔢 NMF (Matrix Factorization)</strong>
+                    <ul style='margin: 0.3rem 0; padding-left: 1.2rem; color: #7f1d1d;'>
+                        <li><strong>How it works:</strong> Factorizes document-term matrix into topics</li>
+                        <li><strong>Speed:</strong> Fast (100-500ms for entire dataset)</li>
+                        <li><strong>Approach:</strong> Linear algebra decomposition with non-negative constraints</li>
+                        <li><strong>Best for:</strong> Clear, distinct topics with sharp separation</li>
+                        <li><strong>Output:</strong> Topic weights that are easier to interpret (all positive)</li>
+                        <li><strong>Advantage:</strong> Often produces more coherent topics than LDA</li>
+                    </ul>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
     st.divider()
 
@@ -1245,6 +1395,7 @@ def sentiment_analysis_page() -> None:
                 st.session_state["sentiment_results"] = {}
                 st.session_state["topic_results"] = {}
                 st.session_state["expanded_reviews"] = set()
+                st.session_state["current_page"] = 1
                 if "ml_model" in st.session_state:
                     del st.session_state["ml_model"]
                 st.rerun()
@@ -1428,9 +1579,34 @@ def sentiment_analysis_page() -> None:
         # Display reviews with integrated analysis
         st.markdown("### 📝 Reviews (Click to expand full analysis)")
 
+        # Pagination controls - fixed at 10 reviews per page
+        total_reviews_count = len(reviews)
+        reviews_per_page = 10
+
+        # Calculate pagination
+        total_pages = max(1, (total_reviews_count + reviews_per_page - 1) // reviews_per_page)
+        current_page = min(st.session_state["current_page"], total_pages)  # Ensure current page is valid
+
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col1:
+            if st.button("◀ Prev", disabled=(current_page <= 1), use_container_width=True):
+                st.session_state["current_page"] = max(1, current_page - 1)
+                st.rerun()
+        with col2:
+            st.markdown(f"<div style='text-align: center; padding-top: 0.5rem;'>Page {current_page} of {total_pages} ({total_reviews_count} total reviews)</div>", unsafe_allow_html=True)
+        with col3:
+            if st.button("Next ▶", disabled=(current_page >= total_pages), use_container_width=True):
+                st.session_state["current_page"] = min(total_pages, current_page + 1)
+                st.rerun()
+
+        # Calculate slice indices for current page
+        start_idx = (current_page - 1) * reviews_per_page
+        end_idx = min(start_idx + reviews_per_page, total_reviews_count)
+        page_reviews = reviews[start_idx:end_idx]
+
         st.markdown("<div class='reviews-container'>", unsafe_allow_html=True)
 
-        for idx, review in enumerate(reviews):
+        for idx, review in enumerate(page_reviews):
             review_id = review['id']
             cache_key = f"{review_id}_{sentiment_model_choice}"
 
@@ -1442,6 +1618,24 @@ def sentiment_analysis_page() -> None:
             st.markdown(review_card_html, unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
+
+        # Bottom pagination controls
+        st.markdown("---")
+        col1, col2, col3 = st.columns([2, 3, 2])
+        with col1:
+            st.markdown(f"Showing reviews {start_idx + 1}-{end_idx} of {total_reviews_count}")
+        with col2:
+            st.markdown(f"<div style='text-align: center;'>Page {current_page} of {total_pages}</div>", unsafe_allow_html=True)
+        with col3:
+            page_col1, page_col2 = st.columns(2)
+            with page_col1:
+                if st.button("◀ Previous", disabled=(current_page <= 1), use_container_width=True, key="prev_bottom"):
+                    st.session_state["current_page"] = max(1, current_page - 1)
+                    st.rerun()
+            with page_col2:
+                if st.button("Next ▶", disabled=(current_page >= total_pages), use_container_width=True, key="next_bottom"):
+                    st.session_state["current_page"] = min(total_pages, current_page + 1)
+                    st.rerun()
 
         st.divider()
 
@@ -1504,11 +1698,11 @@ def sentiment_analysis_page() -> None:
             with col2:
                 # Find most positive topic
                 most_positive = max(topics_data, key=lambda x: x['positive_pct'])
-                st.metric("Most Positive", most_positive['topic'], f"{most_positive['positive_pct']:.0f}% 😊")
+                st.metric(label="Most Positive", value=most_positive['topic'], delta=f"{most_positive['positive_pct']:.0f}% Positive", delta_color="normal")
             with col3:
                 # Find most negative topic
                 most_negative = max(topics_data, key=lambda x: x['negative_pct'])
-                st.metric("Most Negative", most_negative['topic'], f"{most_negative['negative_pct']:.0f}% 😞")
+                st.metric(label="Most Negative", value=most_negative['topic'], delta=f"{most_negative['negative_pct']:.0f}% Negative", delta_color="inverse")
 
             # Create visualization - horizontal stacked bar chart
             st.markdown("#### Sentiment Breakdown by Topic")
@@ -1602,6 +1796,34 @@ def sentiment_analysis_page() -> None:
         # Topic modeling on entire dataset
         model_display_name = "LDA" if topic_model_choice == "LDA (probabilistic)" else "NMF"
         st.markdown(f"### 🔍 Topic Modeling ({model_display_name}) - Entire Dataset")
+
+        # Add overview description
+        st.markdown(
+            """
+            <div style='background: #f0f9ff; padding: 1rem; border-radius: 8px; border-left: 4px solid #0284c7; margin: 1rem 0;'>
+                <strong>What is Topic Modeling?</strong>
+                <p style='margin: 0.5rem 0; color: #0c4a6e;'>
+                    Topic modeling is an unsupervised machine learning technique that automatically discovers abstract "topics"
+                    that occur in a collection of documents. Instead of analyzing individual reviews, it looks across your
+                    entire dataset to find common themes and patterns.
+                </p>
+                <p style='margin: 0.5rem 0; color: #0c4a6e;'>
+                    <strong>What's being extracted:</strong>
+                </p>
+                <ul style='margin: 0.5rem 0; color: #0c4a6e;'>
+                    <li><strong>Hidden themes:</strong> Groups of words that frequently appear together (e.g., "battery", "charge", "life" might form a topic about battery performance)</li>
+                    <li><strong>Topic distributions:</strong> Each topic is represented by its most important words with weights showing their relevance</li>
+                    <li><strong>5 main topics:</strong> The model will identify 5 distinct themes that summarize what customers are talking about</li>
+                    <li><strong>Top 6 words per topic:</strong> The most representative words that define each theme</li>
+                </ul>
+                <p style='margin: 0.5rem 0; color: #0c4a6e;'>
+                    <strong>Use cases:</strong> Understanding broad customer concerns, identifying product features that matter most,
+                    discovering unexpected patterns in feedback, and segmenting reviews by common themes.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         topic_cache_key = f"topic_results_{topic_model_choice}"
 

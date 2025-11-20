@@ -118,15 +118,40 @@ def describe_top_choices(
     log_probs: Dict[str, float],
     top_k: int = 6,
 ) -> List[Dict[str, Any]]:
-    """Select the highest probability tokens for display."""
-    sorted_tokens = sorted(distribution.items(), key=lambda item: item[1], reverse=True)[:top_k]
+    """Select the highest probability tokens for display.
+
+    IMPORTANT: This function deduplicates tokens to ensure each unique token
+    appears only once in the output. Tokens are considered duplicates if they
+    have the same text after normalizing (stripping whitespace and lowercasing).
+    This prevents "Once" and "once" from both appearing in the results.
+
+    The highest-probability variant of each normalized token is kept.
+    """
+    # Sort by probability descending
+    sorted_tokens = sorted(distribution.items(), key=lambda item: item[1], reverse=True)
+
+    # Deduplicate: track seen tokens and only keep first occurrence (highest prob)
+    seen_tokens = set()
+    deduplicated = []
+    for token, prob in sorted_tokens:
+        # Normalize for comparison: strip whitespace AND convert to lowercase
+        # This handles "Once" vs "once" vs " Once " as the same token
+        token_normalized = token.strip().lower()
+        if token_normalized not in seen_tokens:
+            seen_tokens.add(token_normalized)
+            deduplicated.append((token, prob))
+        # else: skip duplicate (already have higher probability version)
+
+    # Take top K after deduplication
+    top_choices = deduplicated[:top_k]
+
     return [
         {
             "token": token,
             "probability": prob,
             "logprob": log_probs.get(token),
         }
-        for token, prob in sorted_tokens
+        for token, prob in top_choices
     ]
 
 
@@ -246,12 +271,19 @@ def request_next_token_distribution(context_text: str, temperature: float, syste
         if isinstance(raw_top, dict):
             top_logprobs = {k: float(v) for k, v in raw_top.items()}
 
-    tokens = list(top_logprobs.keys())
+    # Deduplicate tokens by keeping only the highest logprob for each unique token
+    # This handles cases where the API returns the same token multiple times
+    deduplicated_logprobs: Dict[str, float] = {}
+    for token, logprob in top_logprobs.items():
+        if token not in deduplicated_logprobs or logprob > deduplicated_logprobs[token]:
+            deduplicated_logprobs[token] = logprob
+
+    tokens = list(deduplicated_logprobs.keys())
     if not tokens:
         tokens = [message_content.strip() or " "]
-        top_logprobs = {tokens[0]: 0.0}
+        deduplicated_logprobs = {tokens[0]: 0.0}
 
-    logps = np.array([float(top_logprobs[token]) for token in tokens], dtype=float)
+    logps = np.array([float(deduplicated_logprobs[token]) for token in tokens], dtype=float)
     # Convert log probabilities into a numerically stable probability simplex.
     logps = logps - np.max(logps)
     probs = np.exp(logps)
@@ -263,11 +295,29 @@ def request_next_token_distribution(context_text: str, temperature: float, syste
     if normalized.size == 0:
         normalized = np.array([1.0], dtype=float)
     # Normalize spacing so displayed tokens look natural inside the UI.
-    norm_tokens = [normalize_token(token) for token in tokens]
+    # CRITICAL: We must deduplicate AFTER normalization because different tokens
+    # (e.g., "Once" vs " Once") may normalize to the same value ("Once ")
+    norm_token_to_prob: Dict[str, float] = {}
+    for token, prob in zip(tokens, normalized):
+        norm_token = normalize_token(token)
+        # Keep the highest probability if we see the same normalized token multiple times
+        if norm_token not in norm_token_to_prob or prob > norm_token_to_prob[norm_token]:
+            norm_token_to_prob[norm_token] = float(prob)
+
+    # Build the final lists from deduplicated data
+    norm_tokens = list(norm_token_to_prob.keys())
+    normalized = np.array([norm_token_to_prob[t] for t in norm_tokens], dtype=float)
+
+    # Renormalize probabilities after deduplication
+    total = np.sum(normalized)
+    if total > 0:
+        normalized = normalized / total
+
     raw_log_probs = {
         normalize_token(token): float(logprob)
-        for token, logprob in top_logprobs.items()
+        for token, logprob in deduplicated_logprobs.items()
     }
+
     norm_tokens, normalized = ensure_min_choices(norm_tokens, normalized)
     selected_idx = int(np.argmax(normalized))
     distribution = dict(zip(norm_tokens, normalized))
@@ -310,6 +360,40 @@ def transformer_page() -> None:
     )
 
     st.markdown("# 🧠 Transformer Insight Studio")
+
+    # Introduction section
+    st.markdown(
+        """
+        <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);'>
+            <div style='color: white;'>
+                <h3 style='margin-top: 0; color: white;'>🎯 What Is This?</h3>
+                <p style='font-size: 1.05rem; line-height: 1.6; margin-bottom: 1rem;'>
+                    This interactive lab demonstrates how transformer models generate text one token at a time through <strong>autoregressive sampling</strong>. Watch as the model predicts the most likely next token based on context, revealing the probabilistic nature of AI text generation.
+                </p>
+                <h3 style='color: white;'>📚 What You'll Learn</h3>
+                <ul style='font-size: 1rem; line-height: 1.8; margin-bottom: 1rem;'>
+                    <li><strong>Token-by-Token Generation:</strong> How transformers build text incrementally, choosing one token at a time</li>
+                    <li><strong>Probability Distributions:</strong> See the likelihood scores for each potential next token</li>
+                    <li><strong>Temperature Effects:</strong> Understand how temperature controls randomness vs. determinism</li>
+                    <li><strong>Context Impact:</strong> Observe how previous tokens influence future predictions</li>
+                    <li><strong>Alternative Paths:</strong> Explore how different token choices create different stories</li>
+                </ul>
+                <h3 style='color: white;'>🎮 How to Use This Lab</h3>
+                <ol style='font-size: 1rem; line-height: 1.8; margin-bottom: 0.5rem;'>
+                    <li><strong>Set Your Prompt:</strong> Enter a starting phrase or use the default story prompt</li>
+                    <li><strong>Adjust Temperature:</strong> Lower (0.2) = predictable, Higher (1.0) = creative and random</li>
+                    <li><strong>Generate Tokens:</strong> Click "Generate First Token" to start, then "Generate Next Token" to continue</li>
+                    <li><strong>Explore Alternatives:</strong> Click any token in the probability table to rewrite the story from that point</li>
+                    <li><strong>Navigate History:</strong> Use Previous/Next buttons to review past token choices</li>
+                </ol>
+                <div style='background: rgba(255, 255, 255, 0.15); padding: 1rem; border-radius: 8px; margin-top: 1rem;'>
+                    <strong>💡 Pro Tip:</strong> Try the same prompt with different temperatures to see how creativity changes the output!
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     # Metadata for the three high-level cards displayed on the page.
     panel_meta = {
@@ -498,20 +582,16 @@ def transformer_page() -> None:
         detail_mode = st.session_state["show_detail"]
         step = token_history[viewing_index]
 
+        # Show rewrite notification if it exists
+        if "rewrite_notification" in st.session_state:
+            st.info(st.session_state["rewrite_notification"])
+            del st.session_state["rewrite_notification"]
+
+        # Probability table on left, token selection + API response on right
         col_left, col_right = st.columns([1.5, 1])
+
         with col_left:
-            st.markdown("### 🔁 Token Selection")
-            st.markdown(
-                f"""
-                <div style='background: #f0f9ff; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.5rem;'>
-                    <div style='font-size: 0.85rem; color: #0369a1;'><strong>Selected Token:</strong> {html.escape(step['selected'].strip() or '<space>')}</div>
-                    <div style='font-size: 0.85rem; color: #0369a1;'><strong>Probability:</strong> {step['prob']:.2%}</div>
-                    <div style='font-size: 0.85rem; color: #0369a1; margin-top: 0.3rem;'><strong>Context Snapshot:</strong> {html.escape(step['context_snapshot'])}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            st.markdown("#### 📊 Probability Distribution")
+            st.markdown("### 📊 Probability Distribution")
 
             # Show warning if not at latest token
             at_latest = viewing_index == len(token_history) - 1
@@ -655,15 +735,34 @@ def transformer_page() -> None:
                 st.rerun()
 
         with col_right:
-            # Show rewrite notification if it exists
-            if "rewrite_notification" in st.session_state:
-                st.info(st.session_state["rewrite_notification"])
-                del st.session_state["rewrite_notification"]
+            st.markdown("### 🔁 Token Selection")
+            st.markdown(
+                f"""
+                <div style='background: #f0f9ff; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem;'>
+                    <div style='font-size: 0.85rem; color: #0369a1;'><strong>Selected Token:</strong> {html.escape(step['selected'].strip() or '<space>')}</div>
+                    <div style='font-size: 0.85rem; color: #0369a1;'><strong>Probability:</strong> {step['prob']:.2%}</div>
+                    <div style='font-size: 0.85rem; color: #0369a1; margin-top: 0.3rem;'><strong>Context Snapshot:</strong> {html.escape(step['context_snapshot'])}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-            if detail_mode:
-                st.markdown("#### 🔍 API Response")
-                with st.expander("View raw JSON", expanded=False):
-                    st.json(step.get("raw_response") or {})
+            # Educational info about token vocabulary and capitalization
+            st.markdown(
+                """
+                <div style='background: #fef3c7; padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; margin-bottom: 1rem; border-left: 4px solid #f59e0b;'>
+                    <strong>💡 Did You Know?</strong><br/>
+                    Language models have <strong>separate tokens</strong> for different capitalizations!
+                    For example, "Once" (capitalized) and "once" (lowercase) are distinct vocabulary entries
+                    because capitalization carries meaning in language (sentence beginnings, proper nouns, emphasis).
+                    <br/><br/>
+                    <strong>What you see here:</strong> We've deduplicated case variants to avoid confusion,
+                    showing only the <strong>highest-probability version</strong> of each word. The model
+                    actually considers all variants when generating text!
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
     # Navigation footer
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -780,3 +879,11 @@ def transformer_page() -> None:
             st.session_state["prompt_source"] = DEFAULT_PROMPT
             st.session_state["system_prompt"] = DEFAULT_SYSTEM_PROMPT
             st.rerun()
+
+    # API Response section at the very bottom (only when viewing history)
+    if not is_setup and st.session_state.get("show_detail", True):
+        st.markdown("<div style='margin-top: 2rem;'></div>", unsafe_allow_html=True)
+        st.markdown("### 🔍 API Response Details")
+        with st.expander("View raw JSON response", expanded=False):
+            step = token_history[viewing_index]
+            st.json(step.get("raw_response") or {})

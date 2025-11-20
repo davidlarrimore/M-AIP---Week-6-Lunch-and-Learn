@@ -130,24 +130,32 @@ def translation_page() -> None:
         with cols[idx % 3]:
             # Style the card to highlight whichever language is currently chosen.
             is_selected = st.session_state.get("selected_language") == lang_key
+
+            # Create a clickable button that looks like a card
+            button_label = f"{lang_data['emoji']} {lang_data['language']}"
+
+            if st.button(
+                button_label,
+                key=f"btn_{lang_key}",
+                use_container_width=True,
+                type="primary" if is_selected else "secondary",
+                help=f"{lang_data['script']} Script: {lang_data['text']}"
+            ):
+                select_language(lang_key)
+                st.rerun()
+
+            # Display the text sample below the button
             border_color = "#667eea" if is_selected else "#e5e7eb"
-            background = "linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)" if is_selected else "white"
+            background = "linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)" if is_selected else "#f9fafb"
 
             st.markdown(
                 f"""
-                <div style='background: {background}; padding: 1.2rem; border-radius: 10px;
-                border: 2px solid {border_color}; margin-bottom: 1rem; cursor: pointer;
-                transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.05);'>
-                    <div style='font-size: 2rem; text-align: center; margin-bottom: 0.5rem;'>
-                        {lang_data['emoji']}
-                    </div>
-                    <div style='font-weight: 600; color: #1f2937; text-align: center; margin-bottom: 0.3rem;'>
-                        {lang_data['language']}
-                    </div>
-                    <div style='font-size: 0.85rem; color: #6b7280; text-align: center; margin-bottom: 0.8rem;'>
+                <div style='background: {background}; padding: 1rem; border-radius: 0 0 10px 10px;
+                border: 2px solid {border_color}; border-top: none; margin-top: -0.5rem; margin-bottom: 1rem;'>
+                    <div style='font-size: 0.85rem; color: #6b7280; text-align: center; margin-bottom: 0.5rem;'>
                         {lang_data['script']} Script
                     </div>
-                    <div style='font-size: 1.1rem; text-align: center; color: #374151; line-height: 1.5;
+                    <div style='font-size: 0.95rem; text-align: center; color: #374151; line-height: 1.5;
                     padding: 0.5rem; background: rgba(255,255,255,0.5); border-radius: 6px;'>
                         {lang_data['text']}
                     </div>
@@ -155,15 +163,6 @@ def translation_page() -> None:
                 """,
                 unsafe_allow_html=True,
             )
-
-            if st.button(
-                f"Select {lang_data['language']}",
-                key=f"btn_{lang_key}",
-                width='stretch',
-                type="primary" if is_selected else "secondary",
-            ):
-                select_language(lang_key)
-                st.rerun()
 
     # Only show the rest if a language is selected
     if st.session_state["selected_language"]:
@@ -418,6 +417,19 @@ def translation_page() -> None:
                 )
 
                 if st.session_state["translation_with_context"]:
+                    # Determine which context was used
+                    context_type = ""
+                    context_icon = ""
+                    if st.session_state["english_context"] == selected_lang_data["context_sports"]:
+                        context_type = "Sports"
+                        context_icon = "⚽"
+                    elif st.session_state["english_context"] == selected_lang_data["context_business"]:
+                        context_type = "Business"
+                        context_icon = "💼"
+                    else:
+                        context_type = "Custom"
+                        context_icon = "✏️"
+
                     st.markdown(
                         f"""
                         <div style='background: white; padding: 1.5rem; border-radius: 0 0 10px 10px;
@@ -427,7 +439,7 @@ def translation_page() -> None:
                             </div>
                             <div style='margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;
                             color: #6b7280; font-size: 0.9rem;'>
-                                ✅ Translation with clarifying context in {st.session_state['selected_language']}
+                                ✅ Translation with {context_icon} <strong>{context_type} Context</strong> (translated to {st.session_state['selected_language']})
                             </div>
                         </div>
                         """,

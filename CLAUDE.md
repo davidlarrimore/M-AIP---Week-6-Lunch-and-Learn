@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a multi-page Streamlit application that demonstrates NLP and machine translation concepts to non-technical audiences. The app uses OpenAI-compatible APIs (including AWS Bedrock) for tokenization, embeddings, translation, sentiment analysis, and transformer demonstrations.
+The NLP Playground is an interactive Streamlit application for exploring natural language processing concepts through hands-on demonstrations. The app uses OpenAI-compatible APIs (including AWS Bedrock) for tokenization, embeddings, translation, sentiment analysis, and transformer demonstrations.
 
 ## Development Commands
 
