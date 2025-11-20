@@ -13,3 +13,6 @@ vaderSentiment
 gensim
 wordcloud
 rake-nltk
+transformers
+sentencepiece
+torch

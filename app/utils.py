@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from nltk.translate.bleu_score import SmoothingFunction, modified_precision, sentence_bleu
 from openai import OpenAI
 from tiktoken import Encoding
+from transformers import pipeline
 
 
 # Load .env for local development (ignored when deployed to Streamlit Cloud)
@@ -174,6 +175,28 @@ def translate_context_to_language(context: str, target_lang: str) -> str:
 def get_generation_model() -> str:
     """Return the configured generation model name."""
     return _env_value(GENERATION_MODEL_ENV, DEFAULT_GENERATION_MODEL)
+
+
+@st.cache_resource
+def get_local_translation_pipeline():
+    """Load a small, offline translation model that targets English."""
+    # Helsinki-NLP/opus-mt-mul-en covers many-to-English directions and is lightweight.
+    return pipeline("translation", model="Helsinki-NLP/opus-mt-mul-en")
+
+
+def local_translate_to_english(text: str) -> str:
+    """Translate arbitrary-language text to English using a cached local model."""
+    cleaned = text.strip()
+    if not cleaned:
+        return ""
+    try:
+        translator = get_local_translation_pipeline()
+        result = translator(cleaned, max_length=400)
+        if isinstance(result, list) and result:
+            return str(result[0].get("translation_text", "")).strip()
+    except Exception as exc:
+        st.error(f"Local translation failed: {exc}")
+    return ""
 
 
 def compute_bleu(

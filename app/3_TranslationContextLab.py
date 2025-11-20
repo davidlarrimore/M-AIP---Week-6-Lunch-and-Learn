@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from utils import translate_with_source_language, translate_context_to_language
+from utils import local_translate_to_english, translate_with_source_language, translate_context_to_language
 
 
 # Pre-defined example sentences in different languages (all with the same ambiguous meaning).
@@ -74,6 +74,10 @@ def ensure_session_keys() -> None:
         "translation_without_context",
         "translation_with_context",
         "show_results",
+        "live_source_text",
+        "live_source_lang",
+        "live_openai_translation",
+        "live_local_translation",
     ]
     for key in keys:
         if key not in st.session_state:
@@ -120,6 +124,48 @@ def translation_page() -> None:
     )
 
     ensure_session_keys()
+
+    st.markdown("### ⚡ Live translation (OpenAI vs. local NLP)")
+    st.markdown(
+        "<p style='color: #6b7280; margin-bottom: 0.5rem;'>Compare your configured OPENAI_TRANSLATION_MODEL with a lightweight, offline baseline (Helsinki-NLP/opus-mt-mul-en). Both translate into English so you can see quality differences.</p>",
+        unsafe_allow_html=True,
+    )
+
+    col_src, col_lang = st.columns([3, 1])
+    with col_src:
+        st.session_state["live_source_text"] = st.text_area(
+            "Source sentence (any language → English)",
+            value=st.session_state.get("live_source_text") or "El clima hoy es hermoso.",
+            height=80,
+        )
+    with col_lang:
+        st.session_state["live_source_lang"] = st.selectbox(
+            "Source language label (for OpenAI prompt)",
+            options=["Spanish", "Russian", "Arabic", "Chinese", "Japanese", "Greek", "Other"],
+            index=0,
+        )
+
+    if st.button("Translate with both models", use_container_width=True):
+        with st.spinner("Translating..."):
+            st.session_state["live_openai_translation"] = translate_with_source_language(
+                st.session_state["live_source_text"],
+                st.session_state["live_source_lang"],
+                "English",
+            )
+            st.session_state["live_local_translation"] = local_translate_to_english(
+                st.session_state["live_source_text"]
+            )
+
+    if st.session_state.get("live_openai_translation") or st.session_state.get("live_local_translation"):
+        col_oai, col_local = st.columns(2)
+        with col_oai:
+            st.markdown("**OPENAI_TRANSLATION_MODEL**")
+            st.success(st.session_state.get("live_openai_translation", ""))
+        with col_local:
+            st.markdown("**Local baseline (Helsinki-NLP/opus-mt-mul-en)**")
+            st.info(st.session_state.get("live_local_translation", ""))
+
+    st.divider()
 
     # Language Selection Section
     st.markdown("### 🌍 Step 1: Select a Language Example")
