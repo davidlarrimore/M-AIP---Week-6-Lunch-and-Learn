@@ -1,12 +1,13 @@
 """Shared utilities for tokenization, embeddings, and translation helpers."""
 
 import os
-from typing import List, Tuple
+from typing import List, Sequence, Tuple, Union
 
 import numpy as np
 import streamlit as st
 import tiktoken
 from dotenv import load_dotenv
+from nltk.translate.bleu_score import SmoothingFunction, modified_precision, sentence_bleu
 from openai import OpenAI
 from tiktoken import Encoding
 
@@ -173,3 +174,32 @@ def translate_context_to_language(context: str, target_lang: str) -> str:
 def get_generation_model() -> str:
     """Return the configured generation model name."""
     return _env_value(GENERATION_MODEL_ENV, DEFAULT_GENERATION_MODEL)
+
+
+def compute_bleu(
+    references: Union[str, Sequence[str]],
+    candidate: str,
+    max_n: int = 4,
+) -> Tuple[float, List[float]]:
+    """Compute BLEU with smoothing plus individual n-gram precisions.
+
+    Args:
+        references: One or more reference translations.
+        candidate: Model-generated translation to score.
+        max_n: Highest order n-gram to include (default = 4).
+
+    Returns:
+        Tuple of (BLEU score 0-1, list of n-gram precisions length max_n).
+    """
+    ref_list = [references] if isinstance(references, str) else list(references)
+    ref_tokens = [r.split() for r in ref_list if r and r.split()]
+    hyp_tokens = candidate.split()
+
+    if not ref_tokens or not hyp_tokens:
+        return 0.0, [0.0] * max_n
+
+    weights = tuple([1.0 / max_n] * max_n)
+    smoother = SmoothingFunction().method1
+    bleu_score = sentence_bleu(ref_tokens, hyp_tokens, weights=weights, smoothing_function=smoother)
+    precisions = [float(modified_precision(ref_tokens, hyp_tokens, n)) for n in range(1, max_n + 1)]
+    return bleu_score, precisions

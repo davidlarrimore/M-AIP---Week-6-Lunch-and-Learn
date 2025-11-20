@@ -60,7 +60,7 @@ def get_similarity_color(score: float) -> str:
 
 def embeddings_page() -> None:
     """Show embeddings and cosine similarity in an interactive chart."""
-    st.markdown("# 🎯 Semantic Search with Vector Embeddings")
+    st.markdown("# 🎯 Embeddings Lab")
     st.markdown(
         """
         <div style='background: linear-gradient(135deg, #f6f8fb 0%, #e9ecef 100%);
@@ -77,6 +77,11 @@ def embeddings_page() -> None:
         </div>
         """,
         unsafe_allow_html=True,
+    )
+    st.info(
+        "Embeddings place semantically similar words close together in vector space—unlike "
+        "one-hot vectors that only signal presence, these dense numbers capture meaning and "
+        "relationships such as king ≈ queen and man → woman."
     )
 
     # Initialize search query in session state
@@ -233,7 +238,6 @@ def embeddings_page() -> None:
 
         base_text = st.text_input(
             "Base text for comparison",
-            value=st.session_state["query_input"],
             label_visibility="collapsed",
             help="Type your search query and press Enter to search",
             key="query_input",

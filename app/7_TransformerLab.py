@@ -359,7 +359,7 @@ def transformer_page() -> None:
         unsafe_allow_html=True,
     )
 
-    st.markdown("# 🧠 Transformer Insight Studio")
+    st.markdown("# ⚡ Transformer Lab")
 
     # Introduction section
     st.markdown(
@@ -393,6 +393,11 @@ def transformer_page() -> None:
         </div>
         """,
         unsafe_allow_html=True,
+    )
+    st.info(
+        "Transformers process every token position in parallel and use attention to focus on the most relevant words "
+        "when predicting the next token—unlike RNNs/LSTMs that march through text sequentially. As you step through "
+        "generation below, notice how the probability table shifts based on the full context window."
     )
 
     # Metadata for the three high-level cards displayed on the page.

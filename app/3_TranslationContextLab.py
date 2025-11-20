@@ -98,7 +98,7 @@ def select_language(lang_key: str) -> None:
 
 def translation_page() -> None:
     """Multi-language translation demonstration with context awareness."""
-    st.markdown("# 🌐 Translation Sandbox")
+    st.markdown("# 🌐 Translation Context Lab")
     st.markdown(
         """
         <div style='background: linear-gradient(135deg, #f6f8fb 0%, #e9ecef 100%);
@@ -112,6 +112,11 @@ def translation_page() -> None:
         </div>
         """,
         unsafe_allow_html=True,
+    )
+    st.info(
+        "This is a neural machine translation (NMT) demo: the model reads the full sentence (and optional context) "
+        "at once to produce fluent output. Earlier statistical MT systems relied on phrase tables and often sounded "
+        "choppy; use the context toggle below to see how neural models stay fluent while disambiguating meaning."
     )
 
     ensure_session_keys()

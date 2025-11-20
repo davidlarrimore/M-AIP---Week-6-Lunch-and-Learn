@@ -1177,7 +1177,7 @@ def sentiment_analysis_page() -> None:
     )
 
     # Header
-    st.markdown("# 💭 Sentiment Analysis & Topic Modeling")
+    st.markdown("# 💭 Sentiment Analysis Lab")
     st.markdown(
         """
         <div style='background: linear-gradient(135deg, #f6f8fb 0%, #e9ecef 100%);
@@ -1194,6 +1194,11 @@ def sentiment_analysis_page() -> None:
         </div>
         """,
         unsafe_allow_html=True,
+    )
+    st.info(
+        "Sentiment analysis classifies the emotional tone of text—positive, negative, or neutral—"
+        "and can extend to fine-grained emotions. Use the panels below to see how traditional models "
+        "infer attitude from reviews in milliseconds."
     )
 
     # Performance comparison callout

@@ -14,7 +14,7 @@ PUNCTUATION_BREAKS = {".", ",", "!", "?", ";", ":"}
 def tokenization_page() -> None:
     """Provide an interactive subword tokenization explorer."""
     # Page header
-    st.markdown("# 🔤 Tokenization Playground")
+    st.markdown("# 🔤 Tokenization Lab")
     st.markdown(
         """
         <div style='background: linear-gradient(135deg, #f6f8fb 0%, #e9ecef 100%);
@@ -26,6 +26,11 @@ def tokenization_page() -> None:
         </div>
         """,
         unsafe_allow_html=True,
+    )
+    st.info(
+        "Tokens are the smallest text units a model reads—often subwords or characters—so\n"
+        "understanding how a sentence breaks into tokens explains why long words can cost\n"
+        "multiple tokens while punctuation may stand alone."
     )
 
     # Input section

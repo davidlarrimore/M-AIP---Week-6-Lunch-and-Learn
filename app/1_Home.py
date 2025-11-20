@@ -18,26 +18,32 @@ def import_from_file(module_name, file_path):
 current_dir = Path(__file__).parent
 
 # Import the page functions from renamed files using relative paths
-tok_module = import_from_file("4_Tokenization", current_dir / "4_Tokenization.py")
-emb_module = import_from_file("5_Embeddings", current_dir / "5_Embeddings.py")
-trans_module = import_from_file("3_Translation", current_dir / "3_Translation.py")
-tf_module = import_from_file("6_TransformerDemo", current_dir / "6_TransformerDemo.py")
-sent_module = import_from_file("2_SentimentAnalysis", current_dir / "2_SentimentAnalysis.py")
+sent_module = import_from_file("2_SentimentAnalysisLab", current_dir / "2_SentimentAnalysisLab.py")
+trans_module = import_from_file("3_TranslationContextLab", current_dir / "3_TranslationContextLab.py")
+bleu_module = import_from_file("4_BLEUEvalLab", current_dir / "4_BLEUEvalLab.py")
+tok_module = import_from_file("5_TokenizationLab", current_dir / "5_TokenizationLab.py")
+emb_module = import_from_file("6_EmbeddingsLab", current_dir / "6_EmbeddingsLab.py")
+tf_module = import_from_file("7_TransformerLab", current_dir / "7_TransformerLab.py")
 
+
+sentiment_analysis_page = sent_module.sentiment_analysis_page
+translation_page = trans_module.translation_page
+bleu_page = bleu_module.bleu_page
 tokenization_page = tok_module.tokenization_page
 embeddings_page = emb_module.embeddings_page
-translation_page = trans_module.translation_page
 transformer_page = tf_module.transformer_page
-sentiment_analysis_page = sent_module.sentiment_analysis_page
+
+
 
 # Primary navigation map used by the sidebar radio options.
 PAGE_NAVIGATION = {
     "🏠 Home": ("Home / Overview", "🏠"),
-    "💭 Sentiment Analysis": ("Sentiment & Topic Modeling", "💭"),
-    "🌐 Translation": ("Translation Sandbox", "🌐"),
-    "🔤 Tokenization": ("Tokenization Playground", "🔤"),
-    "🎯 Embeddings": ("Embedding Similarity Explorer", "🎯"),
-    "⚡ Transformers": ("Transformer Insight Studio", "⚡"),
+    "💭 Sentiment Analysis Lab": ("Sentiment & Topic Modeling Lab", "💭"),
+    "🌐 Translation Lab": ("Translation Sandbox Lab", "🌐"),
+    "🔤 Tokenization Lab": ("Tokenization Playground Lab", "🔤"),
+    "🧮 BLEU Evaluation Lab": ("Translation Quality (BLEU) Lab", "🧮"),
+    "🎯 Embeddings Lab": ("Embedding Similarity Lab", "🎯"),
+    "⚡ Transformer Lab": ("Transformer Insight Lab", "⚡"),
 }
 
 
@@ -273,7 +279,7 @@ def show_home() -> None:
     **Use the sidebar menu on the left** to explore different demonstrations. Each page is self-contained
     and interactive—you can experiment with your own text and see results in real-time.
 
-    💡 **Tip**: Start with **Tokenization** to understand the basics, then progress through the other topics in order.
+    💡 **Tip**: Start with **Tokenization Lab** to understand the basics, then progress through the other topics in order.
     """)
 
     st.divider()
@@ -285,7 +291,7 @@ def show_home() -> None:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("### 🔤 Tokenization Playground")
+        st.markdown("### 🔤 Tokenization Lab")
         st.markdown("""
         **What you'll discover**: How AI models break text into tokens (the basic units of processing)
 
@@ -295,11 +301,11 @@ def show_home() -> None:
         - Learn why token count matters for AI systems
         """)
         if st.button("Start Tokenization Lab →", use_container_width=True, key="tokenization"):
-            st.session_state.page = "🔤 Tokenization"
+            st.session_state.page = "🔤 Tokenization Lab"
             st.rerun()
         st.markdown("")
 
-        st.markdown("### 🌐 Translation Sandbox")
+        st.markdown("### 🌐 Translation Lab")
         st.markdown("""
         **What you'll discover**: How context improves machine translation accuracy
 
@@ -309,11 +315,11 @@ def show_home() -> None:
         - Explore multi-language support
         """)
         if st.button("Start Translation Lab →", use_container_width=True, key="translation"):
-            st.session_state.page = "🌐 Translation"
+            st.session_state.page = "🌐 Translation Lab"
             st.rerun()
         st.markdown("")
 
-        st.markdown("### ⚡ Transformers")
+        st.markdown("### ⚡ Transformer Lab")
         st.markdown("""
         **What you'll discover**: How attention mechanisms help AI understand context
 
@@ -323,11 +329,11 @@ def show_home() -> None:
         - Explore prompt engineering effects
         """)
         if st.button("Start Transformer Lab →", use_container_width=True, key="transformer"):
-            st.session_state.page = "⚡ Transformers"
+            st.session_state.page = "⚡ Transformer Lab"
             st.rerun()
 
     with col2:
-        st.markdown("### 🎯 Embedding Explorer")
+        st.markdown("### 🎯 Embeddings Lab")
         st.markdown("""
         **What you'll discover**: How AI represents meaning as high-dimensional vectors
 
@@ -336,12 +342,12 @@ def show_home() -> None:
         - Understand cosine similarity calculations
         - See how embeddings capture meaning
         """)
-        if st.button("Start Embedding Lab →", use_container_width=True, key="embeddings"):
-            st.session_state.page = "🎯 Embeddings"
+        if st.button("Start Embeddings Lab →", use_container_width=True, key="embeddings"):
+            st.session_state.page = "🎯 Embeddings Lab"
             st.rerun()
         st.markdown("")
 
-        st.markdown("### 💭 Sentiment Analysis")
+        st.markdown("### 💭 Sentiment Analysis Lab")
         st.markdown("""
         **What you'll discover**: How traditional NLP techniques analyze emotion and extract topics
 
@@ -351,7 +357,7 @@ def show_home() -> None:
         - Analyze real customer reviews
         """)
         if st.button("Start Sentiment Lab →", use_container_width=True, key="sentiment"):
-            st.session_state.page = "💭 Sentiment Analysis"
+            st.session_state.page = "💭 Sentiment Analysis Lab"
             st.rerun()
 
     st.divider()
@@ -364,11 +370,11 @@ def show_home() -> None:
     with col_left:
         st.markdown("""
         #### 💡 Best Learning Approach
-        1. **Start with Tokenization** to understand the basics
-        2. **Move to Embeddings** to see how meaning is captured
-        3. **Try Translation** to see context in action
-        4. **Explore Sentiment Analysis** for practical applications
-        5. **Finish with Transformers** to see the full picture
+        1. **Start with Tokenization Lab** to understand the basics
+        2. **Move to Embeddings Lab** to see how meaning is captured
+        3. **Try Translation Lab** to see context in action
+        4. **Explore Sentiment Analysis Lab** for practical applications
+        5. **Finish with Transformer Lab** to see the full picture
         """)
 
     with col_right:
@@ -436,16 +442,18 @@ def main() -> None:
     # Route to pages using session state
     if st.session_state.page == "🏠 Home":
         show_home()
-    elif st.session_state.page == "💭 Sentiment Analysis":
+    elif st.session_state.page == "💭 Sentiment Analysis Lab":
         sentiment_analysis_page()
-    elif st.session_state.page == "🌐 Translation":
+    elif st.session_state.page == "🌐 Translation Lab":
         translation_page()
-    elif st.session_state.page == "🔤 Tokenization":
+    elif st.session_state.page == "🔤 Tokenization Lab":
         tokenization_page()
-    elif st.session_state.page == "🎯 Embeddings":
+    elif st.session_state.page == "🎯 Embeddings Lab":
         embeddings_page()
-    elif st.session_state.page == "⚡ Transformers":
+    elif st.session_state.page == "⚡ Transformer Lab":
         transformer_page()
+    elif st.session_state.page == "🧮 BLEU Evaluation Lab":
+        bleu_page()
 
 
 if __name__ == "__main__":
